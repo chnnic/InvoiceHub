@@ -17,8 +17,11 @@ if [ ! -f .env ]; then
   cp .env.example .env
 fi
 
-python3 - <<PY
+export APP_PORT SUPERUSER_USERNAME SUPERUSER_EMAIL
+
+python3 - <<'PY'
 from pathlib import Path
+import os
 path = Path('.env')
 lines = path.read_text().splitlines()
 data = {}
@@ -26,11 +29,11 @@ for line in lines:
     if '=' in line and not line.startswith('#'):
         k,v = line.split('=',1)
         data[k]=v
-data['APP_PORT'] = ${APP_PORT@Q}
+data['APP_PORT'] = os.environ['APP_PORT']
 data['ALLOWED_HOSTS'] = '*'
-data['SUPERUSER_USERNAME'] = ${SUPERUSER_USERNAME@Q}
-data['SUPERUSER_EMAIL'] = ${SUPERUSER_EMAIL@Q}
-path.write_text('\\n'.join(f'{k}={v}' for k,v in data.items()) + '\\n')
+data['SUPERUSER_USERNAME'] = os.environ['SUPERUSER_USERNAME']
+data['SUPERUSER_EMAIL'] = os.environ['SUPERUSER_EMAIL']
+path.write_text('\n'.join(f'{k}={v}' for k,v in data.items()) + '\n')
 PY
 
 docker compose up -d --build

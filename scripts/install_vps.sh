@@ -49,7 +49,9 @@ else
   AUTO_PASSWORD_NOTE=""
 fi
 
-python3 - <<PY
+export APP_PORT SUPERUSER_USERNAME SUPERUSER_EMAIL SUPERUSER_PASSWORD
+
+python3 - <<'PY'
 from pathlib import Path
 import os
 import secrets
@@ -70,10 +72,10 @@ data["DATABASE_URL"] = f"postgresql://invoicehub:{data['POSTGRES_PASSWORD']}@db:
 data["DEBUG"] = "0"
 data["ALLOWED_HOSTS"] = "*"
 data["CSRF_TRUSTED_ORIGINS"] = ""
-data["APP_PORT"] = "${APP_PORT}"
-data["SUPERUSER_USERNAME"] = "${SUPERUSER_USERNAME}"
-data["SUPERUSER_EMAIL"] = "${SUPERUSER_EMAIL}"
-data["SUPERUSER_PASSWORD"] = "${SUPERUSER_PASSWORD}"
+data["APP_PORT"] = os.environ["APP_PORT"]
+data["SUPERUSER_USERNAME"] = os.environ["SUPERUSER_USERNAME"]
+data["SUPERUSER_EMAIL"] = os.environ["SUPERUSER_EMAIL"]
+data["SUPERUSER_PASSWORD"] = os.environ["SUPERUSER_PASSWORD"]
 
 env_path.write_text("\n".join(f"{k}={v}" for k, v in data.items()) + "\n")
 PY
