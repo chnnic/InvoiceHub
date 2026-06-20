@@ -79,7 +79,7 @@ data["SECRET_KEY"] = secrets.token_urlsafe(48)
 data["POSTGRES_PASSWORD"] = secrets.token_urlsafe(24)
 data["DATABASE_URL"] = f"postgresql://invoicehub:{data['POSTGRES_PASSWORD']}@db:5432/invoicehub"
 data["DOMAIN"] = os.environ["DOMAIN"]
-data["APP_PORT"] = "80"
+data["APP_PORT"] = "8001" if os.environ.get("USE_HOST_CADDY") == "1" else "80"
 data["DEBUG"] = "0"
 
 email = os.environ.get("CADDY_EMAIL", "").strip()
@@ -94,7 +94,7 @@ if [ "${USE_HOST_CADDY}" -eq 1 ]; then
   sudo tee /etc/caddy/conf.d/invoicehub.caddy >/dev/null <<EOF
 ${DOMAIN} {
   encode gzip
-  reverse_proxy 127.0.0.1:8000
+  reverse_proxy 127.0.0.1:8001
   log {
     output stdout
     format console
@@ -112,7 +112,7 @@ EOF
   else
     sudo caddy reload --config /etc/caddy/Caddyfile || true
   fi
-  docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
+  USE_HOST_CADDY=1 docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
   sleep 8
   docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml logs --no-color web --tail=80 || true
 else
