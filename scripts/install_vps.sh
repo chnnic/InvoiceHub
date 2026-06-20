@@ -4,27 +4,52 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/chnnic/InvoiceHub.git}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/invoicehub}"
-USE_HOST_CADDY=0
-APP_PORT=""
+APP_PORT="${APP_PORT:-10081}"
 
-find_free_port() {
-  python3 - <<'PY'
-import socket
-for port in range(18081, 28081):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s.bind(("127.0.0.1", port))
-        except OSError:
-            continue
-        print(port)
-        raise SystemExit(0)
-raise SystemExit("no free port found")
+if ! command -v docker >/dev/null 2>&1; then
+  echo "Docker is required."
+  exit 1
+fi
+
+if ! command -v git >/dev/null 2>&1; then
+  echo "git is required."
+  exit 1
+fi
+
+read -r -p "Install directory [${INSTALL_DIR}]: " INPUT_INSTALL_DIR
+INSTALL_DIR="${INPUT_INSTALL_DIR:-$INSTALL_DIR}"
+
+mkdir -p "$(dirname "$INSTALL_DIR")"
+if [ ! -d "$INSTALL_DIR/.git" ]; then
+  git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$INSTALL_DIR"
+else
+  git -C "$INSTALL_DIR" pull origin "$BRANCH"
+fi
+
+cd "$INSTALL_DIR"
+
+read -r -p "VPS port [${APP_PORT}]: " INPUT_APP_PORT
+APP_PORT="${INPUT_APP_PORT:-$APP_PORT}"
+
+read -r -p "Superuser username [admin]: " SUPERUSER_USERNAME
+SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"
+read -r -p "Superuser email [admin@example.com]: " SUPERUSER_EMAIL
+SUPERUSER_EMAIL="${SUPERUSER_EMAIL:-admin@example.com}"
+read -r -s -p "Superuser password (blank = auto-generate): " SUPERUSER_PASSWORD
+echo
+
+if [ -z "${SUPERUSER_PASSWORD}" ]; then
+  SUPERUSER_PASSWORD="$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(16))
 PY
-}
+)"
+  AUTO_PASSWORD_NOTE="(auto-generated)"
+else
+  AUTO_PASSWORD_NOTE=""
+fi
 
-write_env() {
-  python3 - <<'PY'
+python3 - <<PY
 from pathlib import Path
 import os
 import secrets
@@ -42,136 +67,27 @@ if example_path.exists():
 data["SECRET_KEY"] = secrets.token_urlsafe(48)
 data["POSTGRES_PASSWORD"] = secrets.token_urlsafe(24)
 data["DATABASE_URL"] = f"postgresql://invoicehub:{data['POSTGRES_PASSWORD']}@db:5432/invoicehub"
-data["DOMAIN"] = os.environ["DOMAIN"]
 data["DEBUG"] = "0"
-email = os.environ.get("CADDY_EMAIL", "").strip()
-if email:
-    data["CADDY_EMAIL"] = email
-if os.environ.get("USE_HOST_CADDY") == "1":
-    data["APP_PORT"] = os.environ["APP_PORT"]
+data["ALLOWED_HOSTS"] = "*"
+data["CSRF_TRUSTED_ORIGINS"] = ""
+data["APP_PORT"] = "${APP_PORT}"
+data["SUPERUSER_USERNAME"] = "${SUPERUSER_USERNAME}"
+data["SUPERUSER_EMAIL"] = "${SUPERUSER_EMAIL}"
+data["SUPERUSER_PASSWORD"] = "${SUPERUSER_PASSWORD}"
 
 env_path.write_text("\n".join(f"{k}={v}" for k, v in data.items()) + "\n")
 PY
-}
 
-write_caddy_dropin() {
-  sudo mkdir -p /etc/caddy/conf.d
-  sudo tee /etc/caddy/conf.d/invoicehub.caddy >/dev/null <<EOF
-${DOMAIN} {
-  encode gzip
-  reverse_proxy 127.0.0.1:${APP_PORT}
-  log {
-    output stdout
-    format console
-  }
-}
-EOF
-}
-
-deploy_host_caddy() {
-  local tries=0
-  while [ "${tries}" -lt 10 ]; do
-    APP_PORT="$(find_free_port)"
-    export APP_PORT
-    write_env
-    write_caddy_dropin
-    if docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build; then
-      sleep 8
-      docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml logs --no-color web --tail=80 || true
-      return 0
-    fi
-    docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml down || true
-    tries=$((tries + 1))
-  done
-  echo "Failed to find a free internal port for host Caddy mode."
-  exit 1
-}
-
-install_caddy() {
-  if command -v caddy >/dev/null 2>&1; then
-    echo "Caddy already installed."
-    USE_HOST_CADDY=1
-    return
-  fi
-
-  if command -v apt-get >/dev/null 2>&1; then
-    echo "Installing Caddy..."
-    sudo apt-get update
-    sudo apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
-    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
-    sudo apt-get update
-    sudo apt-get install -y caddy
-    USE_HOST_CADDY=1
-    return
-  fi
-
-  echo "Caddy is not installed and automatic installation is only implemented for apt-based systems."
-  exit 1
-}
-
-if ! command -v docker >/dev/null 2>&1; then
-  echo "Docker is required."
-  exit 1
-fi
-
-if ! command -v git >/dev/null 2>&1; then
-  echo "git is required for the one-click installer."
-  exit 1
-fi
-
-install_caddy
-export USE_HOST_CADDY
-
-read -r -p "Domain (e.g. invoice.yourdomain.com): " DOMAIN
-read -r -p "HTTPS email (optional): " CADDY_EMAIL
-
-if [ -z "${DOMAIN}" ]; then
-  echo "Domain is required."
-  exit 1
-fi
-
-if [ "${USE_HOST_CADDY}" -eq 1 ]; then
-  APP_PORT="$(find_free_port)"
-  export APP_PORT
-fi
-
-mkdir -p "$(dirname "$INSTALL_DIR")"
-if [ ! -d "$INSTALL_DIR/.git" ]; then
-  git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$INSTALL_DIR"
-else
-  git -C "$INSTALL_DIR" pull origin "$BRANCH"
-fi
-
-cd "$INSTALL_DIR"
-
-export DOMAIN CADDY_EMAIL
-
-if [ "${USE_HOST_CADDY}" -eq 1 ]; then
-  export USE_HOST_CADDY
-  write_env
-  write_caddy_dropin
-  if ! sudo grep -q 'import /etc/caddy/conf.d/\*\.caddy' /etc/caddy/Caddyfile 2>/dev/null; then
-    echo "" | sudo tee -a /etc/caddy/Caddyfile >/dev/null
-    echo 'import /etc/caddy/conf.d/*.caddy' | sudo tee -a /etc/caddy/Caddyfile >/dev/null
-  fi
-  if sudo systemctl list-unit-files | grep -q '^caddy\.service'; then
-    sudo systemctl reload caddy || sudo systemctl restart caddy
-  elif sudo service caddy status >/dev/null 2>&1; then
-    sudo service caddy reload || sudo service caddy restart
-  else
-    sudo caddy reload --config /etc/caddy/Caddyfile || true
-  fi
-  deploy_host_caddy
-else
-  write_env
-  docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
-  sleep 8
-  docker compose -f docker-compose.yml -f docker-compose.vps.yml logs --no-color web --tail=80 || true
-fi
+docker compose up -d --build
+sleep 8
+docker compose logs --no-color web --tail=80 || true
 
 echo
-echo "Installed to https://${DOMAIN}"
-if [ -n "${APP_PORT}" ]; then
-  echo "Internal web port: ${APP_PORT}"
+echo "Installed."
+echo "Open: http://<your-vps-ip>:${APP_PORT}"
+echo "Superuser: ${SUPERUSER_USERNAME}"
+if [ -n "${AUTO_PASSWORD_NOTE}" ]; then
+  echo "Password: ${SUPERUSER_PASSWORD} ${AUTO_PASSWORD_NOTE}"
+else
+  echo "Password: ${SUPERUSER_PASSWORD}"
 fi

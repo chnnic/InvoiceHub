@@ -24,7 +24,6 @@
 - Django 5.2
 - PostgreSQL
 - Docker / Docker Compose
-- Caddy（VPS HTTPS）
 - ReportLab PDF
 
 ## 安装方式
@@ -68,7 +67,7 @@ SUPERUSER_PASSWORD=your-password
 
 ## VPS 一键安装
 
-先保证 VPS 已安装 Docker、git，且域名已经解析到服务器。
+先保证 VPS 已安装 Docker、git。
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chnnic/InvoiceHub/main/scripts/install_vps.sh | bash
@@ -78,17 +77,14 @@ curl -fsSL https://raw.githubusercontent.com/chnnic/InvoiceHub/main/scripts/inst
 
 1. 从 GitHub 克隆 InvoiceHub
 2. 自动生成 `SECRET_KEY` 和数据库密码
-3. 检查并安装 Caddy（apt-based 系统）
-4. 以 drop-in 方式把 InvoiceHub 配置追加到现有 Caddy，不覆盖旧规则
-5. 如果宿主机已有 Caddy，Installer 会自动选择一个空闲的 `127.0.0.1` 上游端口
-6. 写入域名、启动数据库、应用、Caddy
-7. 自动申请 HTTPS 证书
+3. 写入 VPS 端口、启动数据库和应用
+4. 直接通过 `http://<你的VPS IP>:10081` 访问
 
 安装完成后，如要更新现有 VPS：
 
 ```bash
 cd ~/invoicehub
-bash scripts/deploy_vps.sh
+bash scripts/update_from_github.sh
 ```
 
 ## 超级管理员
@@ -103,7 +99,7 @@ bash scripts/deploy_vps.sh
 超级管理员页面里的更新按钮会执行固定流程：
 
 1. `git pull origin main`
-2. `docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build`
+2. `docker compose up -d --build`
 
 ## 主要功能
 
@@ -124,10 +120,11 @@ bash scripts/deploy_vps.sh
 - `templates/`：网页模板
 - `scripts/`：安装、更新脚本
 - `docker-compose.yml`：本地 / 标准 Docker 启动
-- `docker-compose.vps.yml`：VPS + Caddy 反代
+- `scripts/install_vps.sh`：VPS 一键安装
+- `scripts/update_from_github.sh`：从 GitHub 更新
 
 ## 说明
 
 - 所有金额默认千分位显示
 - 印尼地区默认已考虑 IDR、NPWP、PPN、DPP
-- 生产部署前建议先测试域名、HTTPS、备份和数据库连接
+- 生产部署前建议先测试 IP、端口、备份和数据库连接

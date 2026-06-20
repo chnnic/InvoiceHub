@@ -6,13 +6,12 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-read -r -p "Domain (e.g. invoice.yourdomain.com): " DOMAIN
-read -r -p "Email for HTTPS certs (optional): " CADDY_EMAIL
-
-if [ -z "${DOMAIN}" ]; then
-  echo "Domain is required."
-  exit 1
-fi
+read -r -p "VPS port [10081]: " APP_PORT
+APP_PORT="${APP_PORT:-10081}"
+read -r -p "Superuser username [admin]: " SUPERUSER_USERNAME
+SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"
+read -r -p "Superuser email [admin@example.com]: " SUPERUSER_EMAIL
+SUPERUSER_EMAIL="${SUPERUSER_EMAIL:-admin@example.com}"
 
 if [ ! -f .env ]; then
   cp .env.example .env
@@ -27,11 +26,12 @@ for line in lines:
     if '=' in line and not line.startswith('#'):
         k,v = line.split('=',1)
         data[k]=v
-data['DOMAIN'] = ${DOMAIN@Q}
-if ${CADDY_EMAIL@Q}:
-    data['CADDY_EMAIL'] = ${CADDY_EMAIL@Q}
+data['APP_PORT'] = ${APP_PORT@Q}
+data['ALLOWED_HOSTS'] = '*'
+data['SUPERUSER_USERNAME'] = ${SUPERUSER_USERNAME@Q}
+data['SUPERUSER_EMAIL'] = ${SUPERUSER_EMAIL@Q}
 path.write_text('\\n'.join(f'{k}={v}' for k,v in data.items()) + '\\n')
 PY
 
-docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
-echo "Deployed to https://${DOMAIN}"
+docker compose up -d --build
+echo "Deployed to http://<your-vps-ip>:${APP_PORT}"
