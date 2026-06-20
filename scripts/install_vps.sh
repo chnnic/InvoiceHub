@@ -23,6 +23,70 @@ raise SystemExit("no free port found")
 PY
 }
 
+write_env() {
+  python3 - <<'PY'
+from pathlib import Path
+import os
+import secrets
+
+env_path = Path(".env")
+example_path = Path(".env.example")
+data = {}
+
+if example_path.exists():
+    for line in example_path.read_text().splitlines():
+        if "=" in line and not line.startswith("#"):
+            k, v = line.split("=", 1)
+            data[k] = v
+
+data["SECRET_KEY"] = secrets.token_urlsafe(48)
+data["POSTGRES_PASSWORD"] = secrets.token_urlsafe(24)
+data["DATABASE_URL"] = f"postgresql://invoicehub:{data['POSTGRES_PASSWORD']}@db:5432/invoicehub"
+data["DOMAIN"] = os.environ["DOMAIN"]
+data["DEBUG"] = "0"
+email = os.environ.get("CADDY_EMAIL", "").strip()
+if email:
+    data["CADDY_EMAIL"] = email
+if os.environ.get("USE_HOST_CADDY") == "1":
+    data["APP_PORT"] = os.environ["APP_PORT"]
+
+env_path.write_text("\n".join(f"{k}={v}" for k, v in data.items()) + "\n")
+PY
+}
+
+write_caddy_dropin() {
+  sudo mkdir -p /etc/caddy/conf.d
+  sudo tee /etc/caddy/conf.d/invoicehub.caddy >/dev/null <<EOF
+${DOMAIN} {
+  encode gzip
+  reverse_proxy 127.0.0.1:${APP_PORT}
+  log {
+    output stdout
+    format console
+  }
+}
+EOF
+}
+
+deploy_host_caddy() {
+  local tries=0
+  while [ "${tries}" -lt 10 ]; do
+    APP_PORT="$(find_free_port)"
+    export APP_PORT
+    write_env
+    write_caddy_dropin
+    if docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build; then
+      sleep 8
+      docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml logs --no-color web --tail=80 || true
+      return 0
+    fi
+    docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml down || true
+    tries=$((tries + 1))
+  done
+  echo "Failed to find a free internal port for host Caddy mode."
+  exit 1
+}
+
 install_caddy() {
   if command -v caddy >/dev/null 2>&1; then
     echo "Caddy already installed."
@@ -83,48 +147,10 @@ cd "$INSTALL_DIR"
 
 export DOMAIN CADDY_EMAIL
 
-python3 - <<'PY'
-from pathlib import Path
-import os
-import secrets
-
-env_path = Path(".env")
-example_path = Path(".env.example")
-data = {}
-
-if example_path.exists():
-    for line in example_path.read_text().splitlines():
-        if "=" in line and not line.startswith("#"):
-            k, v = line.split("=", 1)
-            data[k] = v
-
-data["SECRET_KEY"] = secrets.token_urlsafe(48)
-data["POSTGRES_PASSWORD"] = secrets.token_urlsafe(24)
-data["DATABASE_URL"] = f"postgresql://invoicehub:{data['POSTGRES_PASSWORD']}@db:5432/invoicehub"
-data["DOMAIN"] = os.environ["DOMAIN"]
-if os.environ.get("USE_HOST_CADDY") == "1":
-    data["APP_PORT"] = os.environ["APP_PORT"]
-data["DEBUG"] = "0"
-
-email = os.environ.get("CADDY_EMAIL", "").strip()
-if email:
-    data["CADDY_EMAIL"] = email
-
-env_path.write_text("\n".join(f"{k}={v}" for k, v in data.items()) + "\n")
-PY
-
 if [ "${USE_HOST_CADDY}" -eq 1 ]; then
-  sudo mkdir -p /etc/caddy/conf.d
-  sudo tee /etc/caddy/conf.d/invoicehub.caddy >/dev/null <<EOF
-${DOMAIN} {
-  encode gzip
-  reverse_proxy 127.0.0.1:${APP_PORT}
-  log {
-    output stdout
-    format console
-  }
-}
-EOF
+  export USE_HOST_CADDY
+  write_env
+  write_caddy_dropin
   if ! sudo grep -q 'import /etc/caddy/conf.d/\*\.caddy' /etc/caddy/Caddyfile 2>/dev/null; then
     echo "" | sudo tee -a /etc/caddy/Caddyfile >/dev/null
     echo 'import /etc/caddy/conf.d/*.caddy' | sudo tee -a /etc/caddy/Caddyfile >/dev/null
@@ -136,10 +162,9 @@ EOF
   else
     sudo caddy reload --config /etc/caddy/Caddyfile || true
   fi
-  docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
-  sleep 8
-  docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml logs --no-color web --tail=80 || true
+  deploy_host_caddy
 else
+  write_env
   docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
   sleep 8
   docker compose -f docker-compose.yml -f docker-compose.vps.yml logs --no-color web --tail=80 || true
