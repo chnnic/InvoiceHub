@@ -6,7 +6,7 @@ cd "$ROOT_DIR"
 
 git pull origin main
 if command -v caddy >/dev/null 2>&1 && [ -f /etc/caddy/Caddyfile ]; then
-  USE_HOST_CADDY=1 docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
+  docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
   if sudo grep -q 'import /etc/caddy/conf.d/\*\.caddy' /etc/caddy/Caddyfile 2>/dev/null; then
     sudo systemctl reload caddy || sudo service caddy reload || sudo caddy reload --config /etc/caddy/Caddyfile || true
   fi

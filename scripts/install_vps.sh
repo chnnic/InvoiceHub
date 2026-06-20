@@ -40,6 +40,7 @@ if ! command -v git >/dev/null 2>&1; then
 fi
 
 install_caddy
+export USE_HOST_CADDY
 
 read -r -p "Domain (e.g. invoice.yourdomain.com): " DOMAIN
 read -r -p "HTTPS email (optional): " CADDY_EMAIL
@@ -112,7 +113,7 @@ EOF
   else
     sudo caddy reload --config /etc/caddy/Caddyfile || true
   fi
-  USE_HOST_CADDY=1 docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
+  docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
   sleep 8
   docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml logs --no-color web --tail=80 || true
 else
