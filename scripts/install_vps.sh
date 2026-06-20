@@ -5,6 +5,23 @@ REPO_URL="${REPO_URL:-https://github.com/chnnic/InvoiceHub.git}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/invoicehub}"
 USE_HOST_CADDY=0
+APP_PORT=""
+
+find_free_port() {
+  python3 - <<'PY'
+import socket
+for port in range(18081, 28081):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("127.0.0.1", port))
+        except OSError:
+            continue
+        print(port)
+        raise SystemExit(0)
+raise SystemExit("no free port found")
+PY
+}
 
 install_caddy() {
   if command -v caddy >/dev/null 2>&1; then
@@ -50,6 +67,11 @@ if [ -z "${DOMAIN}" ]; then
   exit 1
 fi
 
+if [ "${USE_HOST_CADDY}" -eq 1 ]; then
+  APP_PORT="$(find_free_port)"
+  export APP_PORT
+fi
+
 mkdir -p "$(dirname "$INSTALL_DIR")"
 if [ ! -d "$INSTALL_DIR/.git" ]; then
   git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$INSTALL_DIR"
@@ -80,7 +102,8 @@ data["SECRET_KEY"] = secrets.token_urlsafe(48)
 data["POSTGRES_PASSWORD"] = secrets.token_urlsafe(24)
 data["DATABASE_URL"] = f"postgresql://invoicehub:{data['POSTGRES_PASSWORD']}@db:5432/invoicehub"
 data["DOMAIN"] = os.environ["DOMAIN"]
-data["APP_PORT"] = "8001" if os.environ.get("USE_HOST_CADDY") == "1" else "80"
+if os.environ.get("USE_HOST_CADDY") == "1":
+    data["APP_PORT"] = os.environ["APP_PORT"]
 data["DEBUG"] = "0"
 
 email = os.environ.get("CADDY_EMAIL", "").strip()
@@ -95,7 +118,7 @@ if [ "${USE_HOST_CADDY}" -eq 1 ]; then
   sudo tee /etc/caddy/conf.d/invoicehub.caddy >/dev/null <<EOF
 ${DOMAIN} {
   encode gzip
-  reverse_proxy 127.0.0.1:8001
+  reverse_proxy 127.0.0.1:${APP_PORT}
   log {
     output stdout
     format console
@@ -124,3 +147,6 @@ fi
 
 echo
 echo "Installed to https://${DOMAIN}"
+if [ -n "${APP_PORT}" ]; then
+  echo "Internal web port: ${APP_PORT}"
+fi

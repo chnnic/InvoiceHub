@@ -80,7 +80,7 @@ curl -fsSL https://raw.githubusercontent.com/chnnic/InvoiceHub/main/scripts/inst
 2. 自动生成 `SECRET_KEY` 和数据库密码
 3. 检查并安装 Caddy（apt-based 系统）
 4. 以 drop-in 方式把 InvoiceHub 配置追加到现有 Caddy，不覆盖旧规则
-5. 如果宿主机已有 Caddy，InvoiceHub 会监听 `127.0.0.1:8001`
+5. 如果宿主机已有 Caddy，Installer 会自动选择一个空闲的 `127.0.0.1` 上游端口
 6. 写入域名、启动数据库、应用、Caddy
 7. 自动申请 HTTPS 证书
 
