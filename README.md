@@ -79,8 +79,9 @@ curl -fsSL https://raw.githubusercontent.com/chnnic/InvoiceHub/main/scripts/inst
 1. 从 GitHub 克隆 InvoiceHub
 2. 自动生成 `SECRET_KEY` 和数据库密码
 3. 检查并安装 Caddy（apt-based 系统）
-4. 写入域名、启动数据库、应用、Caddy
-5. 自动申请 HTTPS 证书
+4. 以 drop-in 方式把 InvoiceHub 配置追加到现有 Caddy，不覆盖旧规则
+5. 写入域名、启动数据库、应用、Caddy
+6. 自动申请 HTTPS 证书
 
 安装完成后，如要更新现有 VPS：
 

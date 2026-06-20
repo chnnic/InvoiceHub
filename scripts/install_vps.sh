@@ -4,10 +4,12 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/chnnic/InvoiceHub.git}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/invoicehub}"
+USE_HOST_CADDY=0
 
 install_caddy() {
   if command -v caddy >/dev/null 2>&1; then
     echo "Caddy already installed."
+    USE_HOST_CADDY=1
     return
   fi
 
@@ -19,6 +21,7 @@ install_caddy() {
     curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list >/dev/null
     sudo apt-get update
     sudo apt-get install -y caddy
+    USE_HOST_CADDY=1
     return
   fi
 
@@ -86,10 +89,37 @@ if email:
 env_path.write_text("\n".join(f"{k}={v}" for k, v in data.items()) + "\n")
 PY
 
-docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
-
-sleep 8
-docker compose -f docker-compose.yml -f docker-compose.vps.yml logs --no-color web --tail=80 || true
+if [ "${USE_HOST_CADDY}" -eq 1 ]; then
+  sudo mkdir -p /etc/caddy/conf.d
+  sudo tee /etc/caddy/conf.d/invoicehub.caddy >/dev/null <<EOF
+${DOMAIN} {
+  encode gzip
+  reverse_proxy 127.0.0.1:8000
+  log {
+    output stdout
+    format console
+  }
+}
+EOF
+  if ! sudo grep -q 'import /etc/caddy/conf.d/\*\.caddy' /etc/caddy/Caddyfile 2>/dev/null; then
+    echo "" | sudo tee -a /etc/caddy/Caddyfile >/dev/null
+    echo 'import /etc/caddy/conf.d/*.caddy' | sudo tee -a /etc/caddy/Caddyfile >/dev/null
+  fi
+  if sudo systemctl list-unit-files | grep -q '^caddy\.service'; then
+    sudo systemctl reload caddy || sudo systemctl restart caddy
+  elif sudo service caddy status >/dev/null 2>&1; then
+    sudo service caddy reload || sudo service caddy restart
+  else
+    sudo caddy reload --config /etc/caddy/Caddyfile || true
+  fi
+  docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml up -d --build
+  sleep 8
+  docker compose -f docker-compose.yml -f docker-compose.host-caddy.yml logs --no-color web --tail=80 || true
+else
+  docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build
+  sleep 8
+  docker compose -f docker-compose.yml -f docker-compose.vps.yml logs --no-color web --tail=80 || true
+fi
 
 echo
 echo "Installed to https://${DOMAIN}"
