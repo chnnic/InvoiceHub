@@ -3,7 +3,7 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 from django.forms import inlineformset_factory, formset_factory
 from django.utils.translation import gettext_lazy as _
-from .models import Company, Customer, Product, Invoice, InvoiceItem, Payment, Membership, InventoryTransaction
+from .models import Company, Customer, Product, Invoice, InvoiceItem, Payment, Membership, InventoryTransaction, SystemSetting
 
 class StyledForm:
     def __init__(self, *args, **kwargs):
@@ -52,6 +52,12 @@ class CompanySettingsForm(StyledForm, forms.ModelForm):
         value=self.cleaned_data["invoice_number_digits"]
         if not 1 <= value <= 12: raise forms.ValidationError("Use 1–12 digits.")
         return value
+
+class SystemSettingForm(StyledForm, forms.ModelForm):
+    class Meta:
+        model = SystemSetting
+        fields = ("allow_company_signup",)
+        labels = {"allow_company_signup": _("Allow company signup")}
 
 class InventoryChangeForm(StyledForm, forms.Form):
     kind=forms.ChoiceField(choices=[("in",_("Stock in")),("out",_("Stock out")),("adjust",_("Set exact stock"))],label=_("Operation"))

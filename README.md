@@ -26,10 +26,10 @@
 
 ```bash
 DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py migrate --noinput
-DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py runserver 0.0.0.0:8000
+DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py runserver 0.0.0.0:10081
 ```
 
-Open `http://localhost:8000/`.
+Open `http://localhost:10081/`.
 
 ## Docker
 
@@ -37,6 +37,42 @@ Open `http://localhost:8000/`.
 cp .env.example .env
 docker compose up -d --build
 ```
+
+The first start will create the super admin automatically. If you want a custom password, set `SUPERUSER_PASSWORD` in `.env` before booting.
+
+## One-click VPS deploy
+
+On your VPS, with Docker installed and a domain pointing to the server:
+
+```bash
+bash scripts/deploy_vps.sh
+```
+
+This uses Caddy for automatic HTTPS on ports 80/443.
+
+## Super administrator
+
+At first startup, InvoiceHub creates a super admin automatically:
+
+```bash
+SUPERUSER_USERNAME=admin
+SUPERUSER_EMAIL=admin@example.com
+SUPERUSER_PASSWORD=your-password
+```
+
+If `SUPERUSER_PASSWORD` is omitted, a random password is generated and printed in the container logs.
+
+From the super admin page, you can:
+
+- toggle whether company signup is allowed
+- trigger a GitHub pull + Docker rebuild to update InvoiceHub
+
+## Update from GitHub
+
+The update button runs a fixed server-side script:
+
+1. `git pull origin main`
+2. `docker compose -f docker-compose.yml -f docker-compose.vps.yml up -d --build`
 
 ## GitHub deploy
 

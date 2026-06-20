@@ -10,9 +10,9 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import translation
 from django.utils.translation import gettext as _
-from .decorators import tenant_required
-from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet
-from .models import Company, Customer, Product, Invoice, Payment, Membership, InventoryTransaction
+from .decorators import tenant_required, superuser_required
+from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet, SystemSettingForm
+from .models import Company, Customer, Product, Invoice, Payment, Membership, InventoryTransaction, SystemSetting
 from .pdf import build_invoice_pdf
 
 def switch_language(request):
@@ -34,6 +34,9 @@ def switch_language(request):
     return response
 
 def signup(request):
+    setting = SystemSetting.get_solo()
+    if not setting.allow_company_signup:
+        return render(request, "registration/signup_disabled.html", {"setting": setting})
     form=SignupForm(request.POST or None)
     if request.method=="POST" and form.is_valid():
         with transaction.atomic():
@@ -116,7 +119,28 @@ def members(request):
 def company_settings(request):
     form=CompanySettingsForm(request.POST or None,request.FILES or None,instance=request.company)
     if request.method=="POST" and form.is_valid(): form.save(); return redirect("company_settings")
-    return render(request,"settings.html",{"form":form,"number_preview":request.company.invoice_number_preview()})
+    system_setting = SystemSetting.get_solo()
+    system_form = SystemSettingForm(request.POST or None, instance=system_setting)
+    return render(request,"settings.html",{"form":form,"number_preview":request.company.invoice_number_preview(),"system_form":system_form,"system_setting":system_setting})
+
+@superuser_required
+def system_settings(request):
+    setting = SystemSetting.get_solo()
+    form = SystemSettingForm(request.POST or None, instance=setting)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        return redirect("system_settings")
+    return render(request, "system_settings.html", {"form": form})
+
+@superuser_required
+def update_container(request):
+    if request.method == "POST":
+        from pathlib import Path
+        import subprocess
+        script = Path(__file__).resolve().parent.parent / "scripts" / "update_from_github.sh"
+        result = subprocess.run(["bash", str(script)], cwd=Path(__file__).resolve().parent.parent, capture_output=True, text=True, timeout=900)
+        return render(request, "update_container.html", {"updated": result.returncode == 0, "stdout": result.stdout, "stderr": result.stderr, "script": str(script)})
+    return render(request, "update_container.html", {"updated": False})
 
 @tenant_required()
 def inventory(request):

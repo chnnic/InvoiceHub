@@ -1,0 +1,13 @@
+{% extends 'base.html' %}{% load i18n %}
+{% block content %}
+<div class="pagehead"><div><h1>{% trans "Update InvoiceHub from GitHub" %}</h1></div></div>
+<article class="panel formpanel">
+  {% if updated %}
+    <p>{% trans "InvoiceHub was updated from GitHub and containers were rebuilt." %}</p>
+  {% else %}
+    <p>{% trans "This action pulls the latest InvoiceHub code from GitHub and rebuilds the Docker stack." %}</p>
+  {% endif %}
+  {% if stdout %}<pre style="white-space:pre-wrap">{{ stdout }}</pre>{% endif %}
+  {% if stderr %}<pre style="white-space:pre-wrap;color:#b83228">{{ stderr }}</pre>{% endif %}
+</article>
+{% endblock %}

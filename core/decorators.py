@@ -16,3 +16,10 @@ def tenant_required(roles=None):
         return wrapped
     return deco
 
+def superuser_required(view):
+    @login_required
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        return view(request, *args, **kwargs)
+    return wrapped

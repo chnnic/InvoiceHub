@@ -26,6 +26,18 @@ class Company(models.Model):
     def invoice_number_preview(self):
         return f"{self.invoice_prefix}{str(self.next_invoice_number).zfill(self.invoice_number_digits)}"
 
+class SystemSetting(models.Model):
+    allow_company_signup = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        verbose_name = "System setting"
+        verbose_name_plural = "System settings"
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1, defaults={"allow_company_signup": True})
+        return obj
+
 class Membership(models.Model):
     class Role(models.TextChoices):
         OWNER="owner", "Owner"; ADMIN="admin", "Admin"; FINANCE="finance", "Finance"; SALES="sales", "Sales"; VIEWER="viewer", "Viewer"

@@ -1,0 +1,8 @@
+{% extends 'base.html' %}{% load i18n %}
+{% block content %}
+<div class="pagehead"><div><h1>{% trans "System settings" %}</h1><p>{% trans "Global controls for signup and operations" %}</p></div></div>
+<article class="panel formpanel">
+  <form method="post">{% csrf_token %}{{ form.as_p }}<button class="primary">{% trans "Save system settings" %}</button></form>
+  <form method="post" action="{% url 'update_container' %}" style="margin-top:18px">{% csrf_token %}<button class="secondary" type="submit">{% trans "Update InvoiceHub from GitHub" %}</button></form>
+</article>
+{% endblock %}

@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import translation
 from .templatetags.core_tags import money
-from .models import Company, Customer, Product, Invoice, Membership, InventoryTransaction
+from .models import Company, Customer, Product, Invoice, Membership, InventoryTransaction, SystemSetting
 
 class TenantIsolationTests(TestCase):
     def setUp(self):
@@ -86,3 +86,12 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(response.status_code,302); existing.refresh_from_db(); self.assertEqual(existing.stock_quantity,10)
         new=Product.objects.get(company=self.a,name="New Batch Product"); self.assertEqual(new.stock_quantity,6); self.assertEqual(new.price,50000); self.assertEqual(new.low_stock_threshold,2)
         self.assertEqual(InventoryTransaction.objects.filter(company=self.a,kind="in").count(),2)
+    def test_system_setting_default_allows_company_signup(self):
+        setting = SystemSetting.get_solo()
+        self.assertTrue(setting.allow_company_signup)
+    def test_signup_disabled_page_when_company_signup_off(self):
+        setting = SystemSetting.get_solo()
+        setting.allow_company_signup = False
+        setting.save()
+        response = self.client.get(reverse("signup"))
+        self.assertContains(response, "Company signup disabled")

@@ -16,7 +16,7 @@ services:
     build: .
     restart: unless-stopped
     env_file: [.env]
-    ports: ["${APP_PORT:-8000}:8000"]
+    ports: ["${APP_PORT:-10081}:8000"]
     depends_on:
       db:
         condition: service_healthy
@@ -24,4 +24,3 @@ services:
 volumes:
   postgres_data:
   media_data:
-
