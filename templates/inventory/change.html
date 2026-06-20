@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% load i18n core_tags %}
+{% block content %}
+<div class="pagehead"><div><h1>{% trans "Change stock" %}: {{ product.name }}</h1><p>{% trans "Current stock" %}: {{ product.stock_quantity|money }} {{ product.unit }}</p></div></div>
+<article class="panel formpanel"><form method="post">{% csrf_token %}{{ form.as_p }}<p class="hint">{% trans "Stock in adds quantity, stock out subtracts quantity, and exact stock replaces the current balance." %}</p>{% if company.allow_negative_stock %}<p><span class="badge partial">{% trans "Overselling enabled: stock may become negative." %}</span></p>{% endif %}<button class="primary">{% trans "Save stock change" %}</button></form></article>
+{% endblock %}

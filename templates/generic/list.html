@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% load i18n core_tags %}
+{% block content %}
+<div class="pagehead"><h1>{{ title }}</h1><a class="primary" href="{% url create_url %}">+ {% trans "Create" %}</a></div>
+<article class="panel"><table><tr>{% for f in fields %}<th>{{ f|title }}</th>{% endfor %}</tr>{% for o in objects %}<tr>{% for f in fields %}<td>{% if f == 'price' %}Rp {{ o|attr:f|money }}{% else %}{{ o|attr:f }}{% endif %}</td>{% endfor %}</tr>{% empty %}<tr><td>{% trans "No records yet" %}</td></tr>{% endfor %}</table></article>
+{% endblock %}

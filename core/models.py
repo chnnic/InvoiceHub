@@ -1,0 +1,119 @@
+from decimal import Decimal
+from django.contrib.auth.models import User
+from django.db import models
+from django.db.models import Sum
+from django.utils.translation import gettext_lazy as _
+
+class Company(models.Model):
+    name = models.CharField(max_length=200)
+    logo = models.ImageField(upload_to="company_logos/",blank=True)
+    country = models.CharField(max_length=2, default="ID")
+    currency = models.CharField(max_length=3, default="IDR")
+    npwp = models.CharField(max_length=40, blank=True)
+    address = models.TextField(blank=True)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    website = models.URLField(blank=True)
+    bank_details = models.TextField(blank=True)
+    invoice_prefix = models.CharField(max_length=10, default="INV")
+    invoice_number_digits = models.PositiveSmallIntegerField(default=5)
+    next_invoice_number = models.PositiveBigIntegerField(default=1)
+    allow_negative_stock = models.BooleanField(default=False)
+    default_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=12)
+    default_dpp_factor = models.DecimalField(max_digits=8, decimal_places=6, default=0.916667)
+    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self): return self.name
+    def invoice_number_preview(self):
+        return f"{self.invoice_prefix}{str(self.next_invoice_number).zfill(self.invoice_number_digits)}"
+
+class Membership(models.Model):
+    class Role(models.TextChoices):
+        OWNER="owner", "Owner"; ADMIN="admin", "Admin"; FINANCE="finance", "Finance"; SALES="sales", "Sales"; VIEWER="viewer", "Viewer"
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="memberships")
+    company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="memberships")
+    role = models.CharField(max_length=12, choices=Role.choices, default=Role.VIEWER)
+    active = models.BooleanField(default=True)
+    class Meta: constraints = [models.UniqueConstraint(fields=["user", "company"], name="unique_company_member")]
+
+class TenantModel(models.Model):
+    company = models.ForeignKey(Company, on_delete=models.CASCADE)
+    class Meta: abstract = True
+
+class Customer(TenantModel):
+    name = models.CharField(max_length=200)
+    email = models.EmailField(blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    npwp = models.CharField(max_length=40, blank=True)
+    address = models.TextField(blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    def __str__(self): return self.name
+
+class Product(TenantModel):
+    name = models.CharField(max_length=200)
+    sku = models.CharField(max_length=60, blank=True)
+    unit = models.CharField(max_length=30, default="pcs")
+    price = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    track_inventory = models.BooleanField(default=True)
+    stock_quantity = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    low_stock_threshold = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    active = models.BooleanField(default=True)
+    def __str__(self): return self.name
+    @property
+    def low_stock(self): return self.track_inventory and self.stock_quantity <= self.low_stock_threshold
+
+class InventoryTransaction(TenantModel):
+    class Kind(models.TextChoices):
+        IN="in", _("Stock in"); OUT="out", _("Stock out"); ADJUST="adjust", _("Stock adjustment")
+    product = models.ForeignKey(Product,on_delete=models.PROTECT,related_name="inventory_transactions")
+    kind = models.CharField(max_length=10,choices=Kind.choices)
+    quantity_change = models.DecimalField(max_digits=18,decimal_places=2)
+    stock_after = models.DecimalField(max_digits=18,decimal_places=2)
+    note = models.CharField(max_length=250,blank=True)
+    created_by = models.ForeignKey(User,on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta: ordering=["-created_at","-id"]
+
+class Invoice(TenantModel):
+    class Status(models.TextChoices):
+        DRAFT="draft", "Draft"; SENT="sent", "Sent"; PARTIAL="partial", "Partial"; PAID="paid", "Paid"; OVERDUE="overdue", "Overdue"; VOID="void", "Void"
+    number = models.CharField(max_length=40)
+    customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="invoices")
+    issue_date = models.DateField()
+    due_date = models.DateField()
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT)
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=12)
+    dpp_factor = models.DecimalField(max_digits=8, decimal_places=6, default=0.916667)
+    discount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["company", "number"], name="unique_company_invoice_number")]
+        ordering = ["-issue_date", "-id"]
+    @property
+    def subtotal(self): return sum((x.quantity*x.unit_price for x in self.items.all()), Decimal("0"))
+    @property
+    def tax(self): return max(self.subtotal-self.discount, Decimal("0"))*self.dpp_factor*self.tax_rate/Decimal("100")
+    @property
+    def total(self): return self.subtotal-self.discount+self.tax
+    @property
+    def paid(self): return self.payments.aggregate(v=Sum("amount"))["v"] or Decimal("0")
+    @property
+    def balance(self): return self.total-self.paid
+
+class InvoiceItem(models.Model):
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="items")
+    description = models.CharField(max_length=250)
+    quantity = models.DecimalField(max_digits=12, decimal_places=2, default=1)
+    unit_price = models.DecimalField(max_digits=18, decimal_places=2)
+    @property
+    def total(self): return self.quantity*self.unit_price
+
+class Payment(TenantModel):
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="payments")
+    date = models.DateField()
+    amount = models.DecimalField(max_digits=18, decimal_places=2)
+    method = models.CharField(max_length=40, blank=True)
+    reference = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)

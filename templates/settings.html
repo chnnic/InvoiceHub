@@ -1,0 +1,9 @@
+{% extends 'base.html' %}{% load i18n %}
+{% block content %}
+<div class="pagehead"><div><h1>{% trans "Company settings" %}</h1><p>{% trans "Company profile, tax and invoice numbering" %}</p></div></div>
+<article class="panel formpanel">
+  <div class="number-preview"><small>{% trans "Next invoice number" %}</small><strong>{{ number_preview }}</strong></div>
+  {% if company.logo %}<img src="{{ company.logo.url }}" alt="Logo" style="max-width:180px;max-height:90px;margin-bottom:18px">{% endif %}
+  <form method="post" enctype="multipart/form-data">{% csrf_token %}{{ form.as_p }}<button class="primary">{% trans "Save settings" %}</button></form>
+</article>
+{% endblock %}

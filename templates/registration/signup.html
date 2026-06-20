@@ -1,0 +1,2 @@
+{% extends 'base.html' %}{% load i18n %}{% block content %}<div class="authbox"><div class="brand big">Invoice<span>Hub</span></div><h1>{% trans "Create company account" %}</h1><form method="post">{% csrf_token %}{{ form.as_p }}<button class="primary wide">{% trans "Create account" %}</button></form><p><a href="{% url 'login' %}">{% trans "Back to sign in" %}</a></p></div>{% endblock %}
+

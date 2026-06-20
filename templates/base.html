@@ -1,0 +1,42 @@
+{% load i18n static %}{% get_current_language as LANGUAGE_CODE %}
+<!doctype html>
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}InvoiceHub{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'app.css' %}">
+</head>
+<body>
+{% if user.is_authenticated %}
+<aside>
+  <div class="brand">Invoice<span>Hub</span></div>
+  <div class="company">{{ company.name }}<small>{{ membership.get_role_display }}</small></div>
+  <nav>
+    <a href="{% url 'dashboard' %}">⌂ {% trans "Dashboard" %}</a>
+    <a href="{% url 'invoices' %}">▤ {% trans "Invoices" %}</a>
+    <a href="{% url 'customers' %}">♙ {% trans "Customers" %}</a>
+    <a href="{% url 'products' %}">◇ {% trans "Products" %}</a>
+    <a href="{% url 'inventory' %}">▦ {% trans "Inventory" %}</a>
+    {% if membership.role == 'owner' or membership.role == 'admin' %}<a href="{% url 'members' %}">♧ {% trans "Team & permissions" %}</a><a href="{% url 'company_settings' %}">⚙ {% trans "Company settings" %}</a>{% endif %}
+  </nav>
+</aside>
+{% endif %}
+<main class="{% if not user.is_authenticated %}auth{% endif %}">
+{% if user.is_authenticated %}
+  <header>
+    <form action="{% url 'switch_language' %}" method="post">
+      {% csrf_token %}
+      <select name="language" onchange="this.form.submit()" aria-label="Language">
+        <option value="zh-hans"{% if LANGUAGE_CODE == 'zh-hans' %} selected{% endif %}>中文</option>
+        <option value="en"{% if LANGUAGE_CODE == 'en' %} selected{% endif %}>English</option>
+        <option value="id"{% if LANGUAGE_CODE == 'id' %} selected{% endif %}>Bahasa Indonesia</option>
+      </select>
+      <input name="next" type="hidden" value="{{ request.path }}">
+    </form>
+    <span>{{ user.username }}</span>
+    <form action="{% url 'logout' %}" method="post">{% csrf_token %}<button class="link">{% trans "Logout" %}</button></form>
+  </header>
+{% endif %}
+<section>{% block content %}{% endblock %}</section>
+</main>
+</body></html>

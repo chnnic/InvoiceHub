@@ -1,0 +1,41 @@
+{% extends 'base.html' %}{% load i18n core_tags %}
+{% block content %}
+<div class="pagehead"><h1>{% trans "New invoice" %}</h1></div>
+<article class="panel number-preview"><small>{% trans "Invoice number will be assigned automatically" %}</small><strong>{{ next_number }}</strong></article>
+<form method="post">
+  {% csrf_token %}
+  <article class="panel formpanel">{{ form.as_p }}</article>
+  <article class="panel line-panel">
+    <h2>{% trans "Line items" %}</h2>
+    <p class="hint">{% trans "Choose a product or type a custom description. Selecting a product fills its price automatically." %}</p>
+    {{ formset.management_form }}
+    <table>
+      <tr><th>{% trans "Product / description" %}</th><th>{% trans "Quantity" %}</th><th>{% trans "Unit price" %}</th><th>{% trans "Save as product" %}</th><th>{% trans "Delete" %}</th></tr>
+      {% for f in formset %}
+      <tr class="invoice-line">
+        <td class="product-cell">{{ f.id }}<div class="product-picker">{{ f.description }}<button class="product-toggle" type="button" aria-label="{% trans 'Show products' %}">⌄</button><div class="product-menu" hidden>{% for product in products %}<button type="button" class="product-option" data-name="{{ product.name }}" data-price="{{ product.price }}"><span>{{ product.name }}</span><small>{{ product.sku }} · Rp {{ product.price|money }}</small></button>{% empty %}<p>{% trans "No products yet. Create a product first." %}</p>{% endfor %}</div></div>{{ f.description.errors }}</td>
+        <td>{{ f.quantity }}{{ f.quantity.errors }}</td>
+        <td>{{ f.unit_price }}{{ f.unit_price.errors }}</td>
+        <td class="save-product">{{ f.save_as_product }}<label for="{{ f.save_as_product.id_for_label }}">{% trans "Add to catalog" %}</label></td>
+        <td>{{ f.DELETE }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    <button class="primary">{% trans "Save invoice" %}</button>
+  </article>
+</form>
+<style>
+.number-preview{display:flex;gap:16px;align-items:center}.number-preview strong{font-size:18px;color:var(--accent)}.hint{color:var(--muted)}.line-panel{overflow:visible}.product-cell{min-width:280px}.product-picker{position:relative;display:flex}.product-picker .product-combobox{padding-right:42px}.product-toggle{position:absolute;right:1px;top:1px;bottom:1px;width:38px;border:0;border-left:1px solid var(--line);background:#fff;border-radius:0 7px 7px 0;cursor:pointer}.product-menu{position:absolute;z-index:20;top:calc(100% + 4px);left:0;right:0;max-height:240px;overflow:auto;background:#fff;border:1px solid #d6dae2;border-radius:8px;box-shadow:0 12px 30px #18212f26;padding:5px}.product-option{display:flex;width:100%;justify-content:space-between;align-items:center;gap:12px;border:0;background:#fff;padding:10px;text-align:left;border-radius:6px;cursor:pointer}.product-option[hidden]{display:none!important}.product-option:hover{background:#f1efff}.product-option small{color:var(--muted);white-space:nowrap}.product-menu p{padding:10px;color:var(--muted)}.save-product{white-space:nowrap}.save-product input{width:auto;margin-right:6px}
+</style>
+<script>
+document.querySelectorAll('.product-picker').forEach((picker) => {
+  const input=picker.querySelector('.product-combobox'), menu=picker.querySelector('.product-menu'), toggle=picker.querySelector('.product-toggle');
+  const options=Array.from(picker.querySelectorAll('.product-option'));
+  const filter=() => { const query=input.value.trim().toLocaleLowerCase(); options.forEach(option => { option.hidden=!option.dataset.name.toLocaleLowerCase().includes(query); }); menu.hidden=false; };
+  input.addEventListener('focus',filter); input.addEventListener('input',filter);
+  toggle.addEventListener('click',() => { if(menu.hidden){ filter(); input.focus(); } else { menu.hidden=true; } });
+  options.forEach(option => option.addEventListener('click',() => { input.value=option.dataset.name; const price=picker.closest('.invoice-line').querySelector('.unit-price'); price.value=option.dataset.price; menu.hidden=true; }));
+});
+document.addEventListener('click',(event) => { if(!event.target.closest('.product-picker')) document.querySelectorAll('.product-menu').forEach(menu => menu.hidden=true); });
+</script>
+{% endblock %}
