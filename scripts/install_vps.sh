@@ -6,6 +6,25 @@ BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/invoicehub}"
 APP_PORT="${APP_PORT:-10081}"
 
+find_free_port() {
+  python3 - <<'PY'
+import os
+import socket
+
+start = int(os.environ.get("APP_PORT", "10081"))
+for port in [start, *range(start + 1, start + 1000)]:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("0.0.0.0", port))
+        except OSError:
+            continue
+        print(port)
+        raise SystemExit(0)
+raise SystemExit("no free port found")
+PY
+}
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required."
   exit 1
@@ -30,6 +49,7 @@ cd "$INSTALL_DIR"
 
 read -r -p "VPS port [${APP_PORT}]: " INPUT_APP_PORT
 APP_PORT="${INPUT_APP_PORT:-$APP_PORT}"
+APP_PORT="$(find_free_port)"
 
 read -r -p "Superuser username [admin]: " SUPERUSER_USERNAME
 SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"

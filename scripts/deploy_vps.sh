@@ -8,6 +8,25 @@ fi
 
 read -r -p "VPS port [10081]: " APP_PORT
 APP_PORT="${APP_PORT:-10081}"
+find_free_port() {
+  python3 - <<'PY'
+import os
+import socket
+
+start = int(os.environ.get("APP_PORT", "10081"))
+for port in [start, *range(start + 1, start + 1000)]:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            s.bind(("0.0.0.0", port))
+        except OSError:
+            continue
+        print(port)
+        raise SystemExit(0)
+raise SystemExit("no free port found")
+PY
+}
+APP_PORT="$(find_free_port)"
 read -r -p "Superuser username [admin]: " SUPERUSER_USERNAME
 SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"
 read -r -p "Superuser email [admin@example.com]: " SUPERUSER_EMAIL
