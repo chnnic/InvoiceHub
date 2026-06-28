@@ -1,6 +1,9 @@
 from datetime import date
 from decimal import Decimal
+import os
 import secrets
+import shlex
+import shutil
 from django.contrib.auth import login
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -244,9 +247,56 @@ def superuser_password(request):
         return redirect("system_settings")
     return render(request, "admin_password_change.html", {"form": form})
 
+def _install_dir_hint():
+    value = (os.environ.get("INSTALL_DIR") or "~/invoicehub").strip()
+    return value or "~/invoicehub"
+
+def _manual_update_command():
+    install_dir = _install_dir_hint()
+    quoted_dir = shlex.quote(install_dir)
+    return "\n".join([
+        f"cd {quoted_dir}",
+        "git pull origin main",
+        "if docker compose version >/dev/null 2>&1; then",
+        "  docker compose up -d --build",
+        "else",
+        "  docker-compose up -d --build",
+        "fi",
+    ])
+
+def _self_update_status():
+    if not shutil.which("docker"):
+        return False, _("Docker CLI is not available in the web container.")
+    if not os.path.exists("/var/run/docker.sock"):
+        return False, _("The host Docker socket is not mounted into InvoiceHub, so web updates cannot rebuild the VPS containers.")
+    try:
+        import subprocess
+
+        result = subprocess.run(["docker", "compose", "version"], capture_output=True, text=True, timeout=10)
+        if result.returncode == 0:
+            return True, ""
+    except Exception:
+        pass
+    if shutil.which("docker-compose"):
+        return True, ""
+    return False, _("Docker Compose is not available in the web container.")
+
 @superuser_required
 def update_container(request):
+    self_update_supported, self_update_reason = _self_update_status()
+    context = {
+        "updated": False,
+        "self_update_supported": self_update_supported,
+        "self_update_reason": self_update_reason,
+        "manual_update_command": _manual_update_command(),
+        "install_dir_hint": _install_dir_hint(),
+        "attempted": False,
+    }
     if request.method == "POST":
+        context["attempted"] = True
+        if not self_update_supported:
+            context["manual_required"] = True
+            return render(request, "update_container.html", context)
         from pathlib import Path
         import subprocess
         script = Path(__file__).resolve().parent.parent / "scripts" / "update_from_github.sh"
@@ -255,7 +305,7 @@ def update_container(request):
         stderr = result.stderr or ""
         compose_missing = "Docker Compose is required" in stderr
         already_up_to_date = "Already up to date." in stdout
-        return render(request, "update_container.html", {
+        context.update({
             "updated": result.returncode == 0,
             "stdout": stdout,
             "stderr": stderr,
@@ -263,7 +313,8 @@ def update_container(request):
             "compose_missing": compose_missing,
             "already_up_to_date": already_up_to_date,
         })
-    return render(request, "update_container.html", {"updated": False})
+        return render(request, "update_container.html", context)
+    return render(request, "update_container.html", context)
 
 @superuser_required
 def ui_mockup(request):

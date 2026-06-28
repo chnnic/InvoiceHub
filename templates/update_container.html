@@ -3,9 +3,17 @@
 <div class="pagehead">
   <div>
     <h1>{% trans "Update InvoiceHub from GitHub" %}</h1>
-    <p>{% trans "Pull the latest code, rebuild containers, and keep your data volumes intact." %}</p>
+    <p>{% trans "Use the built-in updater when supported, or run the SSH command below on your VPS." %}</p>
   </div>
-  <span class="badge {% if updated %}paid{% else %}partial{% endif %}">{% if updated %}{% trans "Completed" %}{% else %}{% trans "Attention" %}{% endif %}</span>
+  <span class="badge {% if updated %}paid{% elif self_update_supported %}partial{% else %}overdue{% endif %}">
+    {% if updated %}
+      {% trans "Completed" %}
+    {% elif self_update_supported %}
+      {% trans "Ready" %}
+    {% else %}
+      {% trans "Manual SSH" %}
+    {% endif %}
+  </span>
 </div>
 
 <article class="panel update-shell">
@@ -14,32 +22,51 @@
       {% if updated %}
         <strong>{% trans "Update finished successfully." %}</strong>
         <p>{% trans "InvoiceHub has pulled the latest GitHub version and rebuilt the Docker stack." %}</p>
-      {% elif compose_missing %}
-        <strong>{% trans "Docker Compose is missing." %}</strong>
-        <p>{% trans "Install docker compose plugin or docker-compose, then run the update again." %}</p>
-      {% elif already_up_to_date %}
-        <strong>{% trans "InvoiceHub is already up to date." %}</strong>
-        <p>{% trans "GitHub already matches the current local code." %}</p>
+      {% elif attempted and not self_update_supported %}
+        <strong>{% trans "Web update is not available in this deployment." %}</strong>
+        <p>{{ self_update_reason }}</p>
+      {% elif self_update_supported %}
+        <strong>{% trans "Web update is available." %}</strong>
+        <p>{% trans "You can update from the panel, or run the SSH command manually if you prefer." %}</p>
       {% else %}
-        <strong>{% trans "Ready to update InvoiceHub." %}</strong>
-        <p>{% trans "This action pulls the latest InvoiceHub code from GitHub and rebuilds the Docker stack." %}</p>
+        <strong>{% trans "Use SSH to update this VPS." %}</strong>
+        <p>{{ self_update_reason }}</p>
       {% endif %}
     </div>
     <div class="update-grid">
       <div class="update-card">
         <small>{% trans "Step 1" %}</small>
-        <b>{% trans "Pull latest source" %}</b>
+        <b>{% trans "SSH into VPS" %}</b>
       </div>
       <div class="update-card">
         <small>{% trans "Step 2" %}</small>
-        <b>{% trans "Rebuild containers" %}</b>
+        <b>{% trans "Pull latest source" %}</b>
       </div>
       <div class="update-card">
         <small>{% trans "Step 3" %}</small>
-        <b>{% trans "Keep data volume" %}</b>
+        <b>{% trans "Rebuild containers" %}</b>
       </div>
     </div>
   </div>
+
+  <div class="hintgrid" style="margin-top:18px">
+    <div class="hintbox">
+      <strong>{% trans "Recommended VPS command" %}</strong>
+      <p>{% blocktrans with install_dir=install_dir_hint %}Run this on the server where InvoiceHub is installed. Current install path hint: {{ install_dir }}{% endblocktrans %}</p>
+      <pre class="commandbox">{{ manual_update_command }}</pre>
+    </div>
+    <div class="hintbox">
+      <strong>{% trans "Why manual SSH may be required" %}</strong>
+      <p>{% trans "Many Docker deployments do not mount the host Docker socket into the web container. In that setup, the app can read GitHub but cannot rebuild host containers by itself." %}</p>
+    </div>
+  </div>
+
+  {% if self_update_supported %}
+  <form method="post" style="margin-top:18px">
+    {% csrf_token %}
+    <button class="primary" type="submit">{% trans "Run web update now" %}</button>
+  </form>
+  {% endif %}
 
   {% if stdout or stderr %}
   <div class="loggrid">
@@ -65,7 +92,7 @@
     </div>
     <div class="hintbox">
       <strong>{% trans "If update fails" %}</strong>
-      <p>{% trans "Check Docker Compose availability, network access, and the Git repository state on the VPS." %}</p>
+      <p>{% trans "Check the install path, Git access, and Docker Compose availability on the VPS. If web update is unsupported, use the SSH command above." %}</p>
     </div>
   </div>
 </article>

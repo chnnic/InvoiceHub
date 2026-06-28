@@ -222,7 +222,23 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.12")
+        self.assertEqual(VERSION, "1.0.13")
+
+    def test_update_container_page_shows_manual_ssh_command(self):
+        superuser = User.objects.create_superuser("root5", "root5@example.com", "oldpass123")
+        self.client.force_login(superuser)
+        response = self.client.get(reverse("update_container"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Recommended VPS command")
+        self.assertContains(response, "git pull origin main")
+        self.assertContains(response, "docker compose up -d --build")
+
+    def test_system_settings_links_to_update_guide(self):
+        superuser = User.objects.create_superuser("root6", "root6@example.com", "oldpass123")
+        self.client.force_login(superuser)
+        response = self.client.get(reverse("system_settings"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Open update guide")
 
     def test_superuser_can_open_user_management_without_seeing_tenant_content(self):
         superuser = User.objects.create_superuser("root", "root@example.com", "oldpass123")
