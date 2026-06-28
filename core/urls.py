@@ -28,6 +28,7 @@ urlpatterns = [
     path("inventory/", views.inventory, name="inventory"),
     path("inventory/alerts/", views.inventory_alerts, name="inventory_alerts"),
     path("inventory/alerts.csv", views.inventory_alerts_csv, name="inventory_alerts_csv"),
+    path("inventory/replenish.csv", views.inventory_replenish_csv, name="inventory_replenish_csv"),
     path("inventory/replenish/", views.inventory_replenish, name="inventory_replenish"),
     path("inventory/<int:pk>/", views.inventory_detail, name="inventory_detail"),
     path("inventory/<int:pk>/change/", views.inventory_change, name="inventory_change"),

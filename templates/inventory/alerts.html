@@ -6,10 +6,28 @@
     <p>{% trans "Products that need replenishment right now." %}</p>
   </div>
   <div style="display:flex;gap:10px">
-    <a class="secondary" href="{% url 'inventory_alerts_csv' %}">{% trans "Export CSV" %}</a>
-    <a class="primary" href="{% url 'inventory_replenish' %}">{% trans "Quick replenish" %}</a>
+    <a class="secondary" href="{% url 'inventory_alerts_csv' %}?level={{ active_level }}">{% trans "Export CSV" %}</a>
+    <a class="secondary" href="{% url 'inventory_replenish_csv' %}?level={{ active_level }}">{% trans "Export replenishment" %}</a>
+    <a class="primary" href="{% url 'inventory_replenish' %}?level={{ active_level }}">{% trans "Quick replenish" %}</a>
   </div>
 </div>
+
+<article class="panel" style="margin-bottom:16px">
+  <div class="stats-grid" style="grid-template-columns:repeat(3,minmax(0,1fr))">
+    <a class="stat-card {% if active_level == 'all' %}active{% endif %}" href="{% url 'inventory_alerts' %}?level=all">
+      <small>{% trans "All alerts" %}</small>
+      <strong>{{ warning_count }}</strong>
+    </a>
+    <a class="stat-card {% if active_level == 'critical' %}active{% endif %}" href="{% url 'inventory_alerts' %}?level=critical">
+      <small>{% trans "Negative stock" %}</small>
+      <strong>{{ critical_count }}</strong>
+    </a>
+    <a class="stat-card {% if active_level == 'warning' %}active{% endif %}" href="{% url 'inventory_alerts' %}?level=warning">
+      <small>{% trans "Low stock" %}</small>
+      <strong>{{ normal_warning_count }}</strong>
+    </a>
+  </div>
+</article>
 
 <article class="panel">
   <table>
@@ -39,4 +57,5 @@
     {% endfor %}
   </table>
 </article>
+<style>.stat-card{display:block;padding:14px 16px;border:1px solid #e5e7eb;border-radius:14px;color:inherit;text-decoration:none}.stat-card.active{border-color:#2563eb;background:#eff6ff}</style>
 {% endblock %}

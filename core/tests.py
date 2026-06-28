@@ -109,6 +109,18 @@ class TenantIsolationTests(TestCase):
         self.assertContains(response, "Inventory alerts")
         self.assertContains(response, "A Product")
         self.assertContains(response, "Quick replenish")
+        self.assertContains(response, "All alerts")
+        self.assertContains(response, "Export replenishment")
+    def test_inventory_alerts_can_filter_critical_only(self):
+        critical = Product.objects.get(company=self.a, name="A Product")
+        critical.stock_quantity = -2
+        critical.save(update_fields=["stock_quantity"])
+        Product.objects.create(company=self.a, name="Low Product", stock_quantity=1, low_stock_threshold=5, price=10)
+        self.client.force_login(self.ua)
+        response = self.client.get(reverse("inventory_alerts"), {"level": "critical"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "A Product")
+        self.assertNotContains(response, "Low Product")
     def test_inventory_alerts_csv_exports_rows(self):
         product=Product.objects.get(company=self.a,name="A Product")
         product.stock_quantity = -2
@@ -118,6 +130,17 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Type"], "text/csv")
         self.assertContains(response, "A Product")
+    def test_inventory_replenish_csv_exports_suggested_quantities(self):
+        product = Product.objects.get(company=self.a, name="A Product")
+        product.stock_quantity = -2
+        product.low_stock_threshold = 10
+        product.save(update_fields=["stock_quantity", "low_stock_threshold"])
+        self.client.force_login(self.ua)
+        response = self.client.get(reverse("inventory_replenish_csv"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertContains(response, "Suggested replenishment")
+        self.assertContains(response, "22")
     def test_batch_stock_in_updates_existing_and_creates_new_product(self):
         existing=Product.objects.get(company=self.a,name="A Product")
         self.client.force_login(self.ua)
@@ -199,7 +222,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.11")
+        self.assertEqual(VERSION, "1.0.12")
 
     def test_superuser_can_open_user_management_without_seeing_tenant_content(self):
         superuser = User.objects.create_superuser("root", "root@example.com", "oldpass123")

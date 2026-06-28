@@ -321,30 +321,55 @@ def _replenish_initial_rows(products):
         })
     return rows
 
-@tenant_required()
-def inventory_alerts(request):
+def _inventory_alert_products(company, level="all"):
     products = Product.objects.filter(
-        company=request.company,
+        company=company,
         active=True,
         track_inventory=True,
         stock_quantity__lte=F("low_stock_threshold"),
     ).order_by("stock_quantity", "name")
+    if level == "critical":
+        return products.filter(stock_quantity__lt=0)
+    if level == "warning":
+        return products.filter(stock_quantity__gte=0)
+    return products
+
+def _inventory_alert_summary(company):
+    base = Product.objects.filter(
+        company=company,
+        active=True,
+        track_inventory=True,
+        stock_quantity__lte=F("low_stock_threshold"),
+    )
+    return {
+        "all": base.count(),
+        "critical": base.filter(stock_quantity__lt=0).count(),
+        "warning": base.filter(stock_quantity__gte=0).count(),
+    }
+
+@tenant_required()
+def inventory_alerts(request):
+    level = request.GET.get("level", "all")
+    if level not in {"all", "critical", "warning"}:
+        level = "all"
+    products = _inventory_alert_products(request.company, level)
+    counts = _inventory_alert_summary(request.company)
     return render(request, "inventory/alerts.html", {
         "products": products,
-        "warning_count": products.count(),
-        "critical_count": products.filter(stock_quantity__lt=0).count(),
+        "warning_count": counts["all"],
+        "critical_count": counts["critical"],
+        "normal_warning_count": counts["warning"],
+        "active_level": level,
     })
 
 @tenant_required()
 def inventory_alerts_csv(request):
     import csv
     from io import StringIO
-    products = Product.objects.filter(
-        company=request.company,
-        active=True,
-        track_inventory=True,
-        stock_quantity__lte=F("low_stock_threshold"),
-    ).order_by("stock_quantity", "name")
+    level = request.GET.get("level", "all")
+    if level not in {"all", "critical", "warning"}:
+        level = "all"
+    products = _inventory_alert_products(request.company, level)
     buffer = StringIO()
     writer = csv.writer(buffer)
     writer.writerow(["Product", "Current stock", "Alert threshold", "Unit", "Status"])
@@ -360,14 +385,38 @@ def inventory_alerts_csv(request):
     response["Content-Disposition"] = 'attachment; filename="inventory-alerts.csv"'
     return response
 
+@tenant_required()
+def inventory_replenish_csv(request):
+    import csv
+    from io import StringIO
+    level = request.GET.get("level", "all")
+    if level not in {"all", "critical", "warning"}:
+        level = "all"
+    products = _inventory_alert_products(request.company, level)
+    initial_rows = _replenish_initial_rows(products)
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Product", "Current stock", "Alert threshold", "Suggested replenishment", "Target stock", "Unit"])
+    for row in initial_rows:
+        product = row["product"]
+        writer.writerow([
+            product.name,
+            product.stock_quantity,
+            product.low_stock_threshold,
+            row["quantity"],
+            product.stock_quantity + row["quantity"],
+            product.unit,
+        ])
+    response = HttpResponse(buffer.getvalue(), content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="inventory-replenish.csv"'
+    return response
+
 @tenant_required(["owner","admin","finance"])
 def inventory_replenish(request):
-    products = Product.objects.filter(
-        company=request.company,
-        active=True,
-        track_inventory=True,
-        stock_quantity__lte=F("low_stock_threshold"),
-    ).order_by("stock_quantity", "name")
+    level = request.GET.get("level", "all")
+    if level not in {"all", "critical", "warning"}:
+        level = "all"
+    products = _inventory_alert_products(request.company, level)
     formset = BatchStockInFormSet(
         request.POST or None,
         form_kwargs={"company": request.company},
@@ -382,6 +431,7 @@ def inventory_replenish(request):
         "page_title": _("Quick replenish"),
         "page_intro": _("Low-stock products are prefilled to reach a safer stock buffer. Adjust the quantities, then save."),
         "submit_label": _("Save replenishment"),
+        "active_level": level,
     })
 
 @tenant_required()
