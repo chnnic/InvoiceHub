@@ -267,6 +267,20 @@ def inventory(request):
     return render(request,"inventory/list.html",{"products":products})
 
 @tenant_required()
+def inventory_alerts(request):
+    products = Product.objects.filter(
+        company=request.company,
+        active=True,
+        track_inventory=True,
+        stock_quantity__lte=F("low_stock_threshold"),
+    ).order_by("stock_quantity", "name")
+    return render(request, "inventory/alerts.html", {
+        "products": products,
+        "warning_count": products.count(),
+        "critical_count": products.filter(stock_quantity__lt=0).count(),
+    })
+
+@tenant_required()
 def inventory_detail(request,pk):
     product=get_object_or_404(Product,pk=pk,company=request.company)
     history=product.inventory_transactions.filter(company=request.company).select_related("created_by")

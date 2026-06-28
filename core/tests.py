@@ -94,6 +94,15 @@ class TenantIsolationTests(TestCase):
         response=self.client.get(reverse("dashboard"))
         self.assertContains(response, "Urgent replenishment")
         self.assertContains(response, "Negative stock")
+    def test_inventory_alerts_page_lists_low_stock_products(self):
+        product=Product.objects.get(company=self.a,name="A Product")
+        product.stock_quantity = -2
+        product.save(update_fields=["stock_quantity"])
+        self.client.force_login(self.ua)
+        response=self.client.get(reverse("inventory_alerts"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Inventory alerts")
+        self.assertContains(response, "A Product")
     def test_batch_stock_in_updates_existing_and_creates_new_product(self):
         existing=Product.objects.get(company=self.a,name="A Product")
         self.client.force_login(self.ua)

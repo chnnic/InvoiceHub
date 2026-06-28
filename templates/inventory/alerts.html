@@ -1,0 +1,38 @@
+{% extends 'base.html' %}{% load i18n core_tags %}
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>{% trans "Inventory alerts" %}</h1>
+    <p>{% trans "Products that need replenishment right now." %}</p>
+  </div>
+</div>
+
+<article class="panel">
+  <table>
+    <tr>
+      <th>{% trans "Product" %}</th>
+      <th>{% trans "Current stock" %}</th>
+      <th>{% trans "Alert threshold" %}</th>
+      <th>{% trans "Status" %}</th>
+      <th></th>
+    </tr>
+    {% for product in products %}
+    <tr>
+      <td>{{ product.name }}</td>
+      <td><strong>{{ product.stock_quantity|money }}</strong> {{ product.unit }}</td>
+      <td>{{ product.low_stock_threshold|money }} {{ product.unit }}</td>
+      <td>
+        {% if product.stock_warning_level == 'critical' %}
+          <span class="badge overdue">{% trans "Negative stock" %}</span>
+        {% else %}
+          <span class="badge overdue">{% trans "Low stock" %}</span>
+        {% endif %}
+      </td>
+      <td><a href="{% url 'inventory_detail' product.pk %}">{% trans "Open" %}</a></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="5">{% trans "No inventory alerts right now" %}</td></tr>
+    {% endfor %}
+  </table>
+</article>
+{% endblock %}

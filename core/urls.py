@@ -26,6 +26,7 @@ urlpatterns = [
     path("system/update-container/", views.update_container, name="update_container"),
     path("system/mockup/", views.ui_mockup, name="ui_mockup"),
     path("inventory/", views.inventory, name="inventory"),
+    path("inventory/alerts/", views.inventory_alerts, name="inventory_alerts"),
     path("inventory/<int:pk>/", views.inventory_detail, name="inventory_detail"),
     path("inventory/<int:pk>/change/", views.inventory_change, name="inventory_change"),
     path("inventory/batch-in/", views.inventory_batch_in, name="inventory_batch_in"),

@@ -24,6 +24,13 @@
 {% endif %}
 <main class="{% if not user.is_authenticated %}auth{% endif %}">
 {% if user.is_authenticated %}
+  {% if inventory_warning_count %}
+  <div class="global-alert {% if inventory_warning_critical_count %}critical{% else %}warning{% endif %}">
+    <strong>{% if inventory_warning_critical_count %}{% trans "Negative stock alert" %}{% else %}{% trans "Low stock alert" %}{% endif %}</strong>
+    <span>{% blocktrans with count=inventory_warning_count %}{{ count }} products need replenishment.{% endblocktrans %}</span>
+    <a href="{% url 'inventory_alerts' %}">{% trans "Review now" %}</a>
+  </div>
+  {% endif %}
   <header>
     <form action="{% url 'switch_language' %}" method="post">
       {% csrf_token %}
