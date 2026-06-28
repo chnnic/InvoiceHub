@@ -55,13 +55,13 @@ def label(value):
 
 def build_invoice_pdf(invoice, company):
     output=BytesIO()
-    doc=SimpleDocTemplate(output,pagesize=A4,rightMargin=12*mm,leftMargin=12*mm,topMargin=11*mm,bottomMargin=11*mm,title=invoice.number)
+    doc=SimpleDocTemplate(output,pagesize=A4,rightMargin=14*mm,leftMargin=14*mm,topMargin=14*mm,bottomMargin=14*mm,title=invoice.number)
     styles=getSampleStyleSheet()
-    base=ParagraphStyle("CJK",parent=styles["BodyText"],fontName=PDF_FONT,fontSize=9,leading=12,textColor=colors.HexColor("#4f5662"))
-    small=ParagraphStyle("Small",parent=base,fontSize=8,leading=10,textColor=colors.HexColor("#77808f"))
+    base=ParagraphStyle("CJK",parent=styles["BodyText"],fontName=PDF_FONT,fontSize=8.8,leading=11.5,textColor=colors.HexColor("#4f5662"))
+    small=ParagraphStyle("Small",parent=base,fontSize=7.6,leading=9.5,textColor=colors.HexColor("#77808f"))
     heading=ParagraphStyle("Heading",parent=base,fontSize=13,leading=16,textColor=colors.HexColor("#18212f"))
-    title=ParagraphStyle("Title",parent=base,fontSize=30,leading=34,textColor=colors.HexColor("#2b2d42"),alignment=TA_RIGHT)
-    label_style=ParagraphStyle("Label",parent=small,fontSize=7.5,leading=9,textColor=colors.HexColor("#77808f"))
+    title=ParagraphStyle("Title",parent=base,fontSize=27,leading=30,textColor=colors.HexColor("#2b2d42"),alignment=TA_RIGHT)
+    label_style=ParagraphStyle("Label",parent=small,fontSize=7.2,leading=8.8,textColor=colors.HexColor("#77808f"))
     table_head=ParagraphStyle("TableHead",parent=base,textColor=colors.white)
     right=ParagraphStyle("Right",parent=base,alignment=TA_RIGHT)
     right_small=ParagraphStyle("RightSmall",parent=small,alignment=TA_RIGHT)
@@ -83,18 +83,18 @@ def build_invoice_pdf(invoice, company):
     if company.website: company_text += f"<br/>{html(company.website)}"
     if company.npwp: company_text += f"<br/>NPWP: {html(company.npwp)}"
     identity.append(Paragraph(company_text,base))
-    company_block=Table([identity],colWidths=[24*mm,86*mm],style=[("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0)]) if len(identity)>1 else identity[0]
+    company_block=Table([identity],colWidths=[24*mm,76*mm],style=[("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),0),("RIGHTPADDING",(0,0),(-1,-1),0)]) if len(identity)>1 else identity[0]
     invoice_block=[
         Paragraph(label("Commercial invoice"),right_small),
         Paragraph(label("Invoice"),title),
         Paragraph(f"<b>{html(invoice.number)}</b><br/>{html(invoice.get_status_display())}",right),
     ]
-    story.append(Table([[company_block,invoice_block]],colWidths=[116*mm,55*mm],style=TableStyle([
+    story.append(Table([[company_block,invoice_block]],colWidths=[111*mm,43*mm],style=TableStyle([
         ("VALIGN",(0,0),(-1,-1),"TOP"),
         ("LINEBELOW",(0,0),(-1,0),2,colors.HexColor("#2b2d42")),
-        ("BOTTOMPADDING",(0,0),(-1,0),5*mm),
+        ("BOTTOMPADDING",(0,0),(-1,0),7*mm),
     ])))
-    story.append(Spacer(1,5*mm))
+    story.append(Spacer(1,7*mm))
 
     customer=f"<font color='#77808f'>{label('Bill to')}</font><br/><b>{html(invoice.customer.name)}</b>"
     if invoice.customer.address: customer += f"<br/>{html(invoice.customer.address)}"
@@ -106,13 +106,13 @@ def build_invoice_pdf(invoice, company):
         [Paragraph(label("Due date"),label_style), Paragraph(str(invoice.due_date),right)],
         [Paragraph(label("Currency"),label_style), Paragraph(html(company.currency or "IDR"),right)],
     ]
-    dates_table=Table(dates,colWidths=[32*mm,25*mm],style=[
+    dates_table=Table(dates,colWidths=[29*mm,21*mm],style=[
         ("FONTNAME",(0,0),(-1,-1),PDF_FONT),
         ("LINEBELOW",(0,0),(-1,-2),0.4,colors.HexColor("#e6e8ef")),
         ("TOPPADDING",(0,0),(-1,-1),4),
         ("BOTTOMPADDING",(0,0),(-1,-1),4),
     ])
-    story.append(Table([[Paragraph(customer,base),dates_table]],colWidths=[101*mm,70*mm],style=TableStyle([
+    story.append(Table([[Paragraph(customer,base),dates_table]],colWidths=[96*mm,58*mm],style=TableStyle([
         ("BACKGROUND",(0,0),(-1,-1),colors.HexColor("#f8f9fc")),
         ("BOX",(0,0),(-1,-1),0.6,colors.HexColor("#e6e8ef")),
         ("INNERGRID",(0,0),(-1,-1),0.6,colors.HexColor("#e6e8ef")),
@@ -122,7 +122,7 @@ def build_invoice_pdf(invoice, company):
         ("BOTTOMPADDING",(0,0),(-1,-1),4*mm),
         ("VALIGN",(0,0),(-1,-1),"TOP"),
     ])))
-    story.append(Spacer(1,5*mm))
+    story.append(Spacer(1,7*mm))
 
     data=[[
         Paragraph("#",center_head),
@@ -139,20 +139,20 @@ def build_invoice_pdf(invoice, company):
             Paragraph(money(item.unit_price),right),
             Paragraph(money(item.total),right),
         ])
-    items=Table(data,colWidths=[9*mm,82*mm,20*mm,30*mm,30*mm],repeatRows=1)
+    items=Table(data,colWidths=[9*mm,72*mm,17*mm,28*mm,28*mm],repeatRows=1)
     items.setStyle(TableStyle([
         ("BACKGROUND",(0,0),(-1,0),colors.HexColor("#2b2d42")),
         ("TEXTCOLOR",(0,0),(-1,0),colors.white),
         ("FONTNAME",(0,0),(-1,-1),PDF_FONT),
-        ("BOTTOMPADDING",(0,0),(-1,-1),6),
-        ("TOPPADDING",(0,0),(-1,-1),6),
+        ("BOTTOMPADDING",(0,0),(-1,-1),5.5),
+        ("TOPPADDING",(0,0),(-1,-1),5.5),
         ("LINEBELOW",(0,1),(-1,-1),0.4,colors.HexColor("#e6e8ef")),
         ("VALIGN",(0,0),(-1,-1),"TOP"),
         ("ALIGN",(2,1),(-1,-1),"RIGHT"),
         ("ALIGN",(0,0),(0,-1),"CENTER"),
     ]))
     story.append(items)
-    story.append(Spacer(1,5*mm))
+    story.append(Spacer(1,7*mm))
 
     payment_text = html(company.bank_details) if company.bank_details else label("No payment information configured.")
     if invoice.notes:
@@ -172,7 +172,7 @@ def build_invoice_pdf(invoice, company):
         [label("Paid"),money(invoice.paid)],
         [label("Balance"),money(invoice.balance)],
     ])
-    totals_table=Table(totals,colWidths=[29*mm,37*mm],style=[
+    totals_table=Table(totals,colWidths=[26*mm,31*mm],style=[
         ("FONTNAME",(0,0),(-1,-1),PDF_FONT),
         ("ALIGN",(1,0),(1,-1),"RIGHT"),
         ("BACKGROUND",(0,total_row),(-1,total_row),colors.HexColor("#2b2d42")),
@@ -181,29 +181,29 @@ def build_invoice_pdf(invoice, company):
         ("TEXTCOLOR",(0,balance_row),(-1,balance_row),colors.HexColor("#6956e8")),
         ("BOX",(0,0),(-1,-1),0.6,colors.HexColor("#e6e8ef")),
         ("LINEBELOW",(0,0),(-1,-2),0.4,colors.HexColor("#e6e8ef")),
-        ("TOPPADDING",(0,0),(-1,-1),6),
-        ("BOTTOMPADDING",(0,0),(-1,-1),6),
+        ("TOPPADDING",(0,0),(-1,-1),5.5),
+        ("BOTTOMPADDING",(0,0),(-1,-1),5.5),
     ])
-    story.append(Table([[payment,totals_table]],colWidths=[105*mm,66*mm],style=[
+    story.append(Table([[payment,totals_table]],colWidths=[97*mm,57*mm],style=[
         ("VALIGN",(0,0),(-1,-1),"TOP"),
         ("LEFTPADDING",(0,0),(0,0),0),
         ("RIGHTPADDING",(0,0),(0,0),7*mm),
         ("RIGHTPADDING",(1,0),(1,0),0),
     ]))
-    story.append(Spacer(1,12*mm))
+    story.append(Spacer(1,13*mm))
     signature=Table([
         ["","",""],
         [Paragraph(label("Prepared by"),center_small), "", Paragraph(label("Authorized signature"),center_small)],
     ],colWidths=[62*mm,22*mm,62*mm],style=[
         ("LINEABOVE",(0,1),(0,1),0.6,colors.HexColor("#aeb4c0")),
         ("LINEABOVE",(2,1),(2,1),0.6,colors.HexColor("#aeb4c0")),
-        ("TOPPADDING",(0,0),(-1,0),10*mm),
+        ("TOPPADDING",(0,0),(-1,0),9*mm),
         ("TOPPADDING",(0,1),(-1,1),4),
         ("LEFTPADDING",(0,0),(-1,-1),0),
         ("RIGHTPADDING",(0,0),(-1,-1),0),
     ])
     story.append(signature)
-    story.append(Spacer(1,5*mm))
+    story.append(Spacer(1,7*mm))
     story.append(Paragraph(label("Thank you for your business."),ParagraphStyle("Footer",parent=base,alignment=TA_CENTER,textColor=colors.HexColor("#77808f"))))
     doc.build(story)
     return output.getvalue()
