@@ -22,7 +22,6 @@ from django.utils.translation import gettext as _
 from .decorators import tenant_required, superuser_required
 from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet, SystemSettingForm, AdminPasswordResetForm, FirstLoginPasswordChangeForm, SystemUserForm
 from .models import Company, Customer, Product, Invoice, Payment, Membership, InventoryTransaction, SystemSetting, UserProfile
-from .pdf import build_invoice_pdf
 
 INVOICE_FILTER_STATUS = {"draft", "sent", "partial", "paid", "overdue", "void"}
 INVOICE_FILTER_DELIVERY_STATUS = {"unshipped", "shipped"}
@@ -485,7 +484,7 @@ def invoice_delete(request, pk):
 @tenant_required()
 def invoice_pdf(request,pk):
     invoice=get_object_or_404(Invoice.objects.prefetch_related("items","payments"),pk=pk,company=request.company)
-    return HttpResponse(build_invoice_pdf(invoice,request.company),content_type="application/pdf",headers={"Content-Disposition":f'attachment; filename="{invoice.number}.pdf"'})
+    return render(request, "invoices/print.html", {"invoice": invoice, "company": request.company})
 
 @tenant_required(["owner","admin"])
 def members(request):

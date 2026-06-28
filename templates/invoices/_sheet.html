@@ -1,0 +1,96 @@
+{% load i18n core_tags %}
+<article class="invoice-sheet">
+  <header class="invoice-hero">
+    <div class="company-identity">
+      {% if company.logo %}<img class="invoice-logo" src="{{ company.logo.url }}" alt="{{ company.name }}">{% endif %}
+      <div>
+        <h2>{{ company.name }}</h2>
+        {% if company.address %}<p>{{ company.address|linebreaksbr }}</p>{% endif %}
+        <p>
+          {% if company.phone %}{{ company.phone }}{% endif %}
+          {% if company.email %}{% if company.phone %} · {% endif %}{{ company.email }}{% endif %}
+          {% if company.website %}<br>{{ company.website }}{% endif %}
+          {% if company.npwp %}<br>NPWP: {{ company.npwp }}{% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="invoice-title">
+      <small>{% trans "Commercial invoice" %}</small>
+      <h1>{% trans "Invoice" %}</h1>
+      <strong>{{ invoice.number }}</strong>
+      <span class="badge {{ invoice.status }}">{{ invoice.get_status_display }}</span>
+      <span class="badge {{ invoice.delivery_status }}">{{ invoice.get_delivery_status_display }}</span>
+    </div>
+  </header>
+
+  <section class="invoice-meta-grid">
+    <div class="bill-card">
+      <small>{% trans "Bill to" %}</small>
+      <h2>{{ invoice.customer.name }}</h2>
+      {% if invoice.customer.address %}<p>{{ invoice.customer.address|linebreaksbr }}</p>{% endif %}
+      <p>
+        {% if invoice.customer.email %}{{ invoice.customer.email }}{% endif %}
+        {% if invoice.customer.phone %}<br>{{ invoice.customer.phone }}{% endif %}
+        {% if invoice.customer.npwp %}<br>NPWP: {{ invoice.customer.npwp }}{% endif %}
+      </p>
+    </div>
+    <div class="date-card">
+      <div><small>{% trans "Issue date" %}</small><strong>{{ invoice.issue_date }}</strong></div>
+      <div><small>{% trans "Due date" %}</small><strong>{{ invoice.due_date }}</strong></div>
+      <div><small>{% trans "Currency" %}</small><strong>{{ company.currency|default:"IDR" }}</strong></div>
+    </div>
+  </section>
+
+  <table class="invoice-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>{% trans "Description" %}</th>
+        <th>{% trans "Quantity" %}</th>
+        <th>{% trans "Unit price" %}</th>
+        <th>{% trans "Amount" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for x in invoice.items.all %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ x.description }}</td>
+          <td>{{ x.quantity|money }}</td>
+          <td>Rp {{ x.unit_price|money }}</td>
+          <td>Rp {{ x.total|money }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <section class="invoice-bottom">
+    <div class="payment-info">
+      <small>{% trans "Payment information" %}</small>
+      {% if company.bank_details %}
+        <p>{{ company.bank_details|linebreaksbr }}</p>
+      {% else %}
+        <p>{% trans "No payment information configured." %}</p>
+      {% endif %}
+      {% if invoice.notes %}
+        <small>{% trans "Notes" %}</small>
+        <p>{{ invoice.notes|linebreaksbr }}</p>
+      {% endif %}
+    </div>
+    <div class="invoice-totals">
+      <p><span>{% trans "Subtotal" %}</span><b>Rp {{ invoice.subtotal|money }}</b></p>
+      <p><span>{% trans "Discount" %}</span><b>Rp {{ invoice.discount|money }}</b></p>
+      {% if company.show_ppn %}<p><span>PPN {{ invoice.tax_rate }}%</span><b>Rp {{ invoice.tax|money }}</b></p>{% endif %}
+      <h2><span>{% trans "Total" %}</span><b>Rp {{ invoice.total|money }}</b></h2>
+      <p><span>{% trans "Paid" %}</span><b>Rp {{ invoice.paid|money }}</b></p>
+      <h3><span>{% trans "Balance" %}</span><b>Rp {{ invoice.balance|money }}</b></h3>
+    </div>
+  </section>
+
+  <section class="signature-row">
+    <div><span></span><small>{% trans "Prepared by" %}</small></div>
+    <div><span></span><small>{% trans "Authorized signature" %}</small></div>
+  </section>
+
+  <footer>{% trans "Thank you for your business." %}</footer>
+</article>

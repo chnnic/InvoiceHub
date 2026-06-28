@@ -13,106 +13,12 @@
     {% if can_manage_invoice %}
       <form method="post" action="{% url 'invoice_delete' invoice.pk %}" onsubmit="return confirm(this.dataset.confirm)" data-confirm="{% trans 'Delete this invoice?' %}">{% csrf_token %}<button class="secondary danger" type="submit">{% trans "Delete" %}</button></form>
     {% endif %}
-    <button class="secondary" type="button" onclick="window.print()">⌁ {% trans "Print invoice" %}</button>
-    <a class="primary" href="{% url 'invoice_pdf' invoice.pk %}">⇩ {% trans "Download PDF" %}</a>
+    <a class="secondary" href="{% url 'invoice_pdf' invoice.pk %}">⌁ {% trans "Print invoice" %}</a>
+    <a class="primary" href="{% url 'invoice_pdf' invoice.pk %}">⇩ {% trans "Save as PDF" %}</a>
   </div>
 </div>
 
-<article class="invoice-sheet">
-  <header class="invoice-hero">
-    <div class="company-identity">
-      {% if company.logo %}<img class="invoice-logo" src="{{ company.logo.url }}" alt="{{ company.name }}">{% endif %}
-      <div>
-        <h2>{{ company.name }}</h2>
-        {% if company.address %}<p>{{ company.address|linebreaksbr }}</p>{% endif %}
-        <p>
-          {% if company.phone %}{{ company.phone }}{% endif %}
-          {% if company.email %}{% if company.phone %} · {% endif %}{{ company.email }}{% endif %}
-          {% if company.website %}<br>{{ company.website }}{% endif %}
-          {% if company.npwp %}<br>NPWP: {{ company.npwp }}{% endif %}
-        </p>
-      </div>
-    </div>
-    <div class="invoice-title">
-      <small>{% trans "Commercial invoice" %}</small>
-      <h1>{% trans "Invoice" %}</h1>
-      <strong>{{ invoice.number }}</strong>
-      <span class="badge {{ invoice.status }}">{{ invoice.get_status_display }}</span>
-      <span class="badge {{ invoice.delivery_status }}">{{ invoice.get_delivery_status_display }}</span>
-    </div>
-  </header>
-
-  <section class="invoice-meta-grid">
-    <div class="bill-card">
-      <small>{% trans "Bill to" %}</small>
-      <h2>{{ invoice.customer.name }}</h2>
-      {% if invoice.customer.address %}<p>{{ invoice.customer.address|linebreaksbr }}</p>{% endif %}
-      <p>
-        {% if invoice.customer.email %}{{ invoice.customer.email }}{% endif %}
-        {% if invoice.customer.phone %}<br>{{ invoice.customer.phone }}{% endif %}
-        {% if invoice.customer.npwp %}<br>NPWP: {{ invoice.customer.npwp }}{% endif %}
-      </p>
-    </div>
-    <div class="date-card">
-      <div><small>{% trans "Issue date" %}</small><strong>{{ invoice.issue_date }}</strong></div>
-      <div><small>{% trans "Due date" %}</small><strong>{{ invoice.due_date }}</strong></div>
-      <div><small>{% trans "Currency" %}</small><strong>{{ company.currency|default:"IDR" }}</strong></div>
-    </div>
-  </section>
-
-  <table class="invoice-table">
-    <thead>
-      <tr>
-        <th>#</th>
-        <th>{% trans "Description" %}</th>
-        <th>{% trans "Quantity" %}</th>
-        <th>{% trans "Unit price" %}</th>
-        <th>{% trans "Amount" %}</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for x in invoice.items.all %}
-        <tr>
-          <td>{{ forloop.counter }}</td>
-          <td>{{ x.description }}</td>
-          <td>{{ x.quantity|money }}</td>
-          <td>Rp {{ x.unit_price|money }}</td>
-          <td>Rp {{ x.total|money }}</td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-
-  <section class="invoice-bottom">
-    <div class="payment-info">
-      <small>{% trans "Payment information" %}</small>
-      {% if company.bank_details %}
-        <p>{{ company.bank_details|linebreaksbr }}</p>
-      {% else %}
-        <p>{% trans "No payment information configured." %}</p>
-      {% endif %}
-      {% if invoice.notes %}
-        <small>{% trans "Notes" %}</small>
-        <p>{{ invoice.notes|linebreaksbr }}</p>
-      {% endif %}
-    </div>
-    <div class="invoice-totals">
-      <p><span>{% trans "Subtotal" %}</span><b>Rp {{ invoice.subtotal|money }}</b></p>
-      <p><span>{% trans "Discount" %}</span><b>Rp {{ invoice.discount|money }}</b></p>
-      {% if company.show_ppn %}<p><span>PPN {{ invoice.tax_rate }}%</span><b>Rp {{ invoice.tax|money }}</b></p>{% endif %}
-      <h2><span>{% trans "Total" %}</span><b>Rp {{ invoice.total|money }}</b></h2>
-      <p><span>{% trans "Paid" %}</span><b>Rp {{ invoice.paid|money }}</b></p>
-      <h3><span>{% trans "Balance" %}</span><b>Rp {{ invoice.balance|money }}</b></h3>
-    </div>
-  </section>
-
-  <section class="signature-row">
-    <div><span></span><small>{% trans "Prepared by" %}</small></div>
-    <div><span></span><small>{% trans "Authorized signature" %}</small></div>
-  </section>
-
-  <footer>{% trans "Thank you for your business." %}</footer>
-</article>
+{% include 'invoices/_sheet.html' %}
 
 {% if can_manage_invoice and invoice.status != 'void' %}
 <article class="panel formpanel no-print">
@@ -146,15 +52,9 @@
 
 <style>
 .invoice-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.secondary{background:#fff;border:1px solid #d6dae2;border-radius:8px;padding:10px 16px;cursor:pointer}.secondary.compact{padding:6px 10px;font-size:12px}.danger{border-color:#efc0c0;color:#9d2d2d}
-.invoice-sheet{background:#fff;max-width:900px;min-height:1120px;margin:auto;padding:46px 52px;box-shadow:0 8px 30px #18212f12;border-radius:6px;color:#18212f;font-size:13px;line-height:1.4}
-.invoice-hero{display:grid;grid-template-columns:minmax(0,1fr) 245px;gap:28px;align-items:start;border-bottom:3px solid #2b2d42;padding-bottom:20px}.company-identity{display:flex;gap:16px;min-width:0}.invoice-logo{width:96px;height:68px;object-fit:contain}.company-identity h2{font-size:21px;margin:0 0 6px}.company-identity p,.bill-card p,.payment-info p{margin:0 0 5px;color:var(--muted);line-height:1.42}.invoice-title{text-align:right;min-width:0}.invoice-title small,.bill-card small,.date-card small,.payment-info small,.signature-row small{color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-size:10px}.invoice-title h1{font-size:39px;letter-spacing:4px;margin:3px 0 2px;color:#2b2d42;line-height:1}.invoice-title strong{display:block;font-size:16px;margin:5px 0}.invoice-title .badge{display:inline-block;margin-top:5px}
-.invoice-meta-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(230px,.8fr);gap:20px;margin-top:22px}.bill-card,.date-card{background:#f8f9fc;border:1px solid #e6e8ef;border-radius:12px;padding:16px}.bill-card h2{font-size:19px;margin:6px 0 7px}.date-card{display:grid;gap:8px}.date-card div{display:flex;justify-content:space-between;gap:14px;border-bottom:1px solid #e6e8ef;padding-bottom:8px}.date-card div:last-child{border-bottom:0;padding-bottom:0}
-.invoice-table{width:100%;border-collapse:collapse;margin-top:24px;table-layout:fixed}.invoice-table thead{background:#2b2d42;color:#fff}.invoice-table th{color:#fff;font-weight:600}.invoice-table th,.invoice-table td{padding:9px 10px;border-bottom:1px solid #e6e8ef;vertical-align:top}.invoice-table th:nth-child(1),.invoice-table td:nth-child(1){width:38px;text-align:center}.invoice-table th:nth-child(2),.invoice-table td:nth-child(2){width:auto}.invoice-table th:nth-child(3),.invoice-table td:nth-child(3){width:78px}.invoice-table th:nth-child(4),.invoice-table td:nth-child(4),.invoice-table th:nth-child(5),.invoice-table td:nth-child(5){width:112px}.invoice-table th:nth-child(n+3),.invoice-table td:nth-child(n+3){text-align:right}
-.invoice-bottom{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:24px;margin-top:22px;align-items:start}.payment-info{border-left:4px solid #e8e4ff;padding-left:14px}.invoice-totals{border:1px solid #e6e8ef;border-radius:12px;overflow:hidden}.invoice-totals p,.invoice-totals h2,.invoice-totals h3{display:flex;justify-content:space-between;gap:16px;margin:0;padding:9px 13px;border-bottom:1px solid #e6e8ef}.invoice-totals h2{background:#2b2d42;color:#fff;font-size:18px}.invoice-totals h3{background:#f1efff;color:var(--accent);font-size:16px;border-bottom:0}
-.signature-row{display:grid;grid-template-columns:1fr 1fr;gap:68px;margin-top:48px}.signature-row span{display:block;border-bottom:1px solid #aeb4c0;height:34px}.signature-row small{display:block;text-align:center;margin-top:7px}.invoice-sheet footer{text-align:center;border-top:1px solid #e6e8ef;margin-top:28px;padding-top:12px;color:var(--muted)}.amount-row label{display:inline-block;margin-right:10px}.amount-tools{display:inline-flex;margin-left:8px;vertical-align:middle}.form-divider{border:0;border-top:1px solid #e6e8ef;margin:24px 0}.status-form{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}.status-form label{font-weight:600}
-@media(max-width:900px){.invoice-hero,.company-identity{display:block}.company-identity,.invoice-title{max-width:none;text-align:left}.invoice-meta-grid,.invoice-bottom,.signature-row{grid-template-columns:1fr}.invoice-sheet{padding:28px}}
-@media print{@page{size:A4;margin:14mm}aside,body>main>header,.no-print{display:none!important}body,main,main section{margin:0!important;padding:0!important;background:#fff!important}.invoice-sheet{box-shadow:none!important;max-width:none;min-height:0;padding:0;border:0;border-radius:0;font-size:11.5px;line-height:1.34}.invoice-hero{grid-template-columns:minmax(0,1fr) 50mm;gap:10mm;padding-bottom:7mm;border-bottom-width:2px}.company-identity{gap:4mm}.invoice-logo{width:22mm;height:16mm}.company-identity h2{font-size:16px;margin-bottom:2px}.company-identity p,.bill-card p,.payment-info p{margin-bottom:2px;line-height:1.3}.invoice-title small,.bill-card small,.date-card small,.payment-info small,.signature-row small{font-size:8.5px;letter-spacing:.4px}.invoice-title h1{font-size:28px;letter-spacing:2px;margin:1px 0 2px}.invoice-title strong{font-size:12px;margin:3px 0}.invoice-title .badge{font-size:9.5px;padding:3px 7px;margin-top:3px}.invoice-meta-grid{grid-template-columns:minmax(0,1.18fr) minmax(48mm,.82fr);gap:5mm;margin-top:7mm}.bill-card,.date-card{padding:4mm;border-radius:6px}.bill-card h2{font-size:14.5px;margin:2px 0 3px}.date-card{gap:2mm}.date-card div{gap:4mm;padding-bottom:2mm}.invoice-table{font-size:10px;margin-top:7mm}.invoice-table th,.invoice-table td{padding:2.2mm 2mm}.invoice-table th:nth-child(1),.invoice-table td:nth-child(1){width:9mm}.invoice-table th:nth-child(3),.invoice-table td:nth-child(3){width:16mm}.invoice-table th:nth-child(4),.invoice-table td:nth-child(4),.invoice-table th:nth-child(5),.invoice-table td:nth-child(5){width:26mm}.invoice-bottom{grid-template-columns:minmax(0,1fr) 63mm;gap:6mm;margin-top:7mm}.payment-info{border-left-width:3px;padding-left:3mm}.invoice-totals{border-radius:6px}.invoice-totals p,.invoice-totals h2,.invoice-totals h3{padding:2.2mm 3mm;font-size:10px}.invoice-totals h2,.invoice-totals h3{font-size:11.5px}.signature-row{gap:18mm;margin-top:13mm}.signature-row span{height:9mm}.invoice-sheet footer{margin-top:7mm;padding-top:3mm}.bill-card,.date-card,.invoice-totals,.signature-row{break-inside:avoid}}
+.amount-row label{display:inline-block;margin-right:10px}.amount-tools{display:inline-flex;margin-left:8px;vertical-align:middle}.form-divider{border:0;border-top:1px solid #e6e8ef;margin:24px 0}.status-form{display:grid;grid-template-columns:1fr 1fr auto;gap:12px;align-items:end}.status-form label{font-weight:600}
 </style>
+{% include 'invoices/_sheet_styles.html' %}
 <script>
 const fillBalance = document.getElementById('fill-balance');
 if (fillBalance) {

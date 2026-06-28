@@ -237,7 +237,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.26")
+        self.assertEqual(VERSION, "1.0.27")
 
     def test_update_container_page_shows_manual_ssh_command(self):
         superuser = User.objects.create_superuser("root5", "root5@example.com", "oldpass123")
@@ -444,7 +444,7 @@ class TenantIsolationTests(TestCase):
         self.assertNotContains(response, ">Draft<")
         self.assertNotContains(response, ">Unshipped<")
 
-    def test_invoice_pdf_download_generates_pdf(self):
+    def test_invoice_pdf_route_uses_shared_print_layout(self):
         self.client.force_login(self.ua)
         product = Product.objects.get(company=self.a, name="A Product")
         data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"PDF test","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
@@ -452,5 +452,6 @@ class TenantIsolationTests(TestCase):
         invoice = Invoice.objects.get(company=self.a)
         response = self.client.get(reverse("invoice_pdf", args=[invoice.pk]))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Type"], "application/pdf")
-        self.assertTrue(response.content.startswith(b"%PDF"))
+        self.assertContains(response, "invoice-sheet")
+        self.assertContains(response, "window.print")
+        self.assertContains(response, "PDF test")
