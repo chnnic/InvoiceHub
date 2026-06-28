@@ -8,6 +8,7 @@
   <article class="panel line-panel">
     <h2>{% trans "Line items" %}</h2>
     <p class="hint">{% trans "Choose a product or type a custom description. Selecting a product fills its price automatically." %}</p>
+    {{ formset.non_form_errors }}
     {{ formset.management_form }}
     <table>
       <tr><th>{% trans "Product / description" %}</th><th>{% trans "Quantity" %}</th><th>{% trans "Unit price" %}</th><th>{% trans "Save as product" %}</th><th>{% trans "Delete" %}</th></tr>

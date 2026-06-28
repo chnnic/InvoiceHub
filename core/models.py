@@ -1,4 +1,5 @@
 from decimal import Decimal
+from datetime import date
 from django.contrib.auth.models import User
 from django.db import models
 from django.db.models import Sum
@@ -122,6 +123,16 @@ class Invoice(TenantModel):
     def paid(self): return self.payments.aggregate(v=Sum("amount"))["v"] or Decimal("0")
     @property
     def balance(self): return self.total-self.paid
+    def recalculate_status(self):
+        if self.status == self.Status.VOID:
+            return self.status
+        if self.balance <= 0:
+            self.status = self.Status.PAID
+        elif self.paid > 0:
+            self.status = self.Status.PARTIAL
+        elif self.status != self.Status.DRAFT and self.due_date < date.today():
+            self.status = self.Status.OVERDUE
+        return self.status
 
 class InvoiceItem(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="items")

@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.contrib.auth.models import User
-from django.forms import inlineformset_factory, formset_factory
+from django.forms import BaseInlineFormSet, inlineformset_factory, formset_factory
 from django.utils.translation import gettext_lazy as _
 from .models import Company, Customer, Product, Invoice, InvoiceItem, Payment, Membership, InventoryTransaction, SystemSetting, UserProfile
 
@@ -35,7 +35,35 @@ class InvoiceItemForm(StyledForm, forms.ModelForm):
     class Meta:
         model=InvoiceItem; fields=("description","quantity","unit_price")
         widgets={"description":forms.TextInput(attrs={"class":"input product-combobox","autocomplete":"off"}),"quantity":forms.NumberInput(attrs={"class":"input","step":"0.01"}),"unit_price":forms.NumberInput(attrs={"class":"input unit-price","step":"0.01"})}
-InvoiceItemFormSet=inlineformset_factory(Invoice, InvoiceItem, form=InvoiceItemForm, extra=3, can_delete=True)
+    def clean_quantity(self):
+        value = self.cleaned_data["quantity"]
+        if value <= 0:
+            raise forms.ValidationError(_("Quantity must be greater than zero."))
+        return value
+    def clean_unit_price(self):
+        value = self.cleaned_data["unit_price"]
+        if value <= 0:
+            raise forms.ValidationError(_("Unit price must be greater than zero."))
+        return value
+
+class InvoiceItemFormSetBase(BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        has_item = False
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data"):
+                continue
+            if form.cleaned_data.get("DELETE"):
+                continue
+            if form.cleaned_data.get("description"):
+                has_item = True
+                break
+        if not has_item:
+            raise forms.ValidationError(_("Add at least one invoice line item."))
+
+InvoiceItemFormSet=inlineformset_factory(Invoice, InvoiceItem, form=InvoiceItemForm, formset=InvoiceItemFormSetBase, extra=3, can_delete=True)
 class PaymentForm(StyledForm, forms.ModelForm):
     class Meta:
         model=Payment; fields=("date","amount","method","reference")

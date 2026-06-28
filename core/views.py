@@ -116,8 +116,8 @@ def payment_add(request,pk):
     invoice=get_object_or_404(Invoice,pk=pk,company=request.company); form=PaymentForm(request.POST)
     if form.is_valid():
         p=form.save(commit=False); p.company=request.company; p.invoice=invoice; p.save()
-        balance=invoice.balance
-        invoice.status="paid" if balance<=0 else "partial"; invoice.save(update_fields=["status"])
+        invoice.recalculate_status()
+        invoice.save(update_fields=["status"])
     return redirect("invoice_detail",pk=pk)
 @tenant_required()
 def invoice_pdf(request,pk):
