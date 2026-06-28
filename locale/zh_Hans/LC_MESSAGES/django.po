@@ -246,6 +246,9 @@ msgstr "销售总额"
 msgid "All"
 msgstr "全部"
 
+msgid "Advanced filters"
+msgstr "高级筛选"
+
 msgid "Search"
 msgstr "搜索"
 

@@ -237,7 +237,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.19")
+        self.assertEqual(VERSION, "1.0.21")
 
     def test_update_container_page_shows_manual_ssh_command(self):
         superuser = User.objects.create_superuser("root5", "root5@example.com", "oldpass123")
@@ -410,7 +410,9 @@ class TenantIsolationTests(TestCase):
         self.client.post(reverse("invoice_create"), data)
         response = self.client.get(reverse("invoices"), {"status": "draft"})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Status breakdown")
+        self.assertContains(response, "Total sales")
+        self.assertContains(response, "inline-status-form")
+        self.assertContains(response, reverse("invoice_status_update", args=[Invoice.objects.get(company=self.a).pk]))
         self.assertContains(response, "Unpaid")
         self.assertContains(response, "Shipped")
         response = self.client.get(reverse("invoices_csv"))

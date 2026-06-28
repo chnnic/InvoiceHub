@@ -271,6 +271,7 @@ def invoices(request):
     invoice_list = list(invoice_qs)
     summary = _invoice_summary(invoice_list)
     querystring = request.GET.urlencode()
+    can_manage_invoice = request.user.is_superuser or (getattr(request, "membership", None) and request.membership.role in {"owner", "admin", "finance"})
     return render(request, "invoices/list.html", {
         "invoices": invoice_list,
         "filters": params,
@@ -279,6 +280,7 @@ def invoices(request):
         "customers": Customer.objects.filter(company=request.company).order_by("name"),
         "summary": summary,
         "querystring": querystring,
+        "can_manage_invoice": can_manage_invoice,
     })
 
 @tenant_required()

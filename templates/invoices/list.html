@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% load i18n core_tags %}
 {% block content %}
-<div class="pagehead">
+<div class="pagehead invoices-head">
   <div>
     <h1>{% trans "Invoices" %}</h1>
     <p>{% trans "Filter, export, and review monthly or customer sales." %}</p>
@@ -11,66 +11,38 @@
   </div>
 </div>
 
-<div class="cards">
-  <article><small>{% trans "Invoices" %}</small><strong>{{ summary.invoice_count }}</strong></article>
-  <article><small>{% trans "Total sales" %}</small><strong>Rp {{ summary.invoice_total|money }}</strong></article>
-  <article><small>{% trans "Paid" %}</small><strong>{{ summary.status_counts.paid|default:0 }}</strong></article>
-  <article><small>{% trans "Overdue" %}</small><strong>{{ summary.status_counts.overdue|default:0 }}</strong></article>
-</div>
-
-<nav class="quick-filters">
-  <a class="filter-chip{% if filters.quick == 'unpaid' %} active{% endif %}" href="{% url 'invoices' %}?quick=unpaid">{% trans "Unpaid" %}</a>
-  <a class="filter-chip{% if filters.status == 'paid' %} active{% endif %}" href="{% url 'invoices' %}?status=paid">{% trans "Paid" %}</a>
-  <a class="filter-chip{% if filters.delivery_status == 'shipped' %} active{% endif %}" href="{% url 'invoices' %}?delivery_status=shipped">{% trans "Shipped" %}</a>
-  <a class="filter-chip{% if filters.delivery_status == 'unshipped' %} active{% endif %}" href="{% url 'invoices' %}?delivery_status=unshipped">{% trans "Unshipped" %}</a>
-  <a class="filter-chip{% if filters.status == 'draft' %} active{% endif %}" href="{% url 'invoices' %}?status=draft">{% trans "Draft" %}</a>
-</nav>
-
-<article class="panel formpanel filter-panel">
-  <form method="get" class="filter-grid">
-    <label>{% trans "Search" %}<input name="q" value="{{ filters.q }}" placeholder="{% trans 'Invoice number' %}"></label>
-    <label>{% trans "Status" %}<select name="status"><option value="">{% trans "All" %}</option>{% for key,label in status_choices %}<option value="{{ key }}"{% if filters.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-    <label>{% trans "Delivery status" %}<select name="delivery_status"><option value="">{% trans "All" %}</option>{% for key,label in delivery_status_choices %}<option value="{{ key }}"{% if filters.delivery_status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
-    <label>{% trans "Customer" %}<select name="customer"><option value="">{% trans "All" %}</option>{% for customer in customers %}<option value="{{ customer.pk }}"{% if filters.customer == customer.pk|stringformat:'s' %} selected{% endif %}>{{ customer.name }}</option>{% endfor %}</select></label>
-    <label>{% trans "Month" %}<input type="month" name="month" value="{{ filters.month }}"></label>
-    <div class="filter-actions"><button class="primary" type="submit">{% trans "Apply filters" %}</button><a href="{% url 'invoices' %}">{% trans "Reset" %}</a></div>
-  </form>
-</article>
-
-<div class="grid two">
-  <article class="panel">
-    <h2>{% trans "Status breakdown" %}</h2>
-    <div class="stack">
-      {% for key,label,count in summary.status_rows %}
-        <div class="row"><span class="badge {{ key }}">{{ label }}</span><b>{{ count }}</b></div>
-      {% endfor %}
-    </div>
-  </article>
-  <article class="panel">
-    <h2>{% trans "Top customers" %}</h2>
-    <div class="stack">
-      {% for name,total in summary.customer_totals %}
-        <div class="row"><span>{{ name }}</span><b>Rp {{ total|money }}</b></div>
-      {% empty %}
-        <p class="hint">{% trans "No customer totals yet." %}</p>
-      {% endfor %}
-    </div>
-  </article>
-</div>
-
-<article class="panel">
-  <h2>{% trans "Monthly sales" %}</h2>
-  <div class="stack">
-    {% for month,total in summary.month_totals %}
-      <div class="row"><span>{{ month }}</span><b>Rp {{ total|money }}</b></div>
-    {% empty %}
-      <p class="hint">{% trans "No monthly data yet." %}</p>
-    {% endfor %}
+<section class="invoice-toolbar">
+  <div class="summary-strip">
+    <span><small>{% trans "Invoices" %}</small><b>{{ summary.invoice_count }}</b></span>
+    <span><small>{% trans "Total sales" %}</small><b>Rp {{ summary.invoice_total|money }}</b></span>
+    <span><small>{% trans "Paid" %}</small><b>{{ summary.status_counts.paid|default:0 }}</b></span>
+    <span><small>{% trans "Overdue" %}</small><b>{{ summary.status_counts.overdue|default:0 }}</b></span>
   </div>
-</article>
 
-<article class="panel">
-  <table>
+  <nav class="quick-filters">
+    <a class="filter-chip{% if not filters.quick and not filters.status and not filters.delivery_status %} active{% endif %}" href="{% url 'invoices' %}">{% trans "All" %}</a>
+    <a class="filter-chip{% if filters.quick == 'unpaid' %} active{% endif %}" href="{% url 'invoices' %}?quick=unpaid">{% trans "Unpaid" %}</a>
+    <a class="filter-chip{% if filters.status == 'paid' %} active{% endif %}" href="{% url 'invoices' %}?status=paid">{% trans "Paid" %}</a>
+    <a class="filter-chip{% if filters.delivery_status == 'shipped' %} active{% endif %}" href="{% url 'invoices' %}?delivery_status=shipped">{% trans "Shipped" %}</a>
+    <a class="filter-chip{% if filters.delivery_status == 'unshipped' %} active{% endif %}" href="{% url 'invoices' %}?delivery_status=unshipped">{% trans "Unshipped" %}</a>
+    <a class="filter-chip{% if filters.status == 'draft' %} active{% endif %}" href="{% url 'invoices' %}?status=draft">{% trans "Draft" %}</a>
+  </nav>
+
+  <details class="advanced-filters"{% if filters.q or filters.status or filters.delivery_status or filters.customer or filters.month %} open{% endif %}>
+    <summary>{% trans "Advanced filters" %}</summary>
+    <form method="get" class="filter-grid">
+      <label>{% trans "Search" %}<input name="q" value="{{ filters.q }}" placeholder="{% trans 'Invoice number' %}"></label>
+      <label>{% trans "Status" %}<select name="status"><option value="">{% trans "All" %}</option>{% for key,label in status_choices %}<option value="{{ key }}"{% if filters.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>{% trans "Delivery status" %}<select name="delivery_status"><option value="">{% trans "All" %}</option>{% for key,label in delivery_status_choices %}<option value="{{ key }}"{% if filters.delivery_status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+      <label>{% trans "Customer" %}<select name="customer"><option value="">{% trans "All" %}</option>{% for customer in customers %}<option value="{{ customer.pk }}"{% if filters.customer == customer.pk|stringformat:'s' %} selected{% endif %}>{{ customer.name }}</option>{% endfor %}</select></label>
+      <label>{% trans "Month" %}<input type="month" name="month" value="{{ filters.month }}"></label>
+      <div class="filter-actions"><button class="primary" type="submit">{% trans "Apply filters" %}</button><a href="{% url 'invoices' %}">{% trans "Reset" %}</a></div>
+    </form>
+  </details>
+</section>
+
+<article class="panel invoice-list-panel">
+  <table class="invoice-list">
     <tr>
       <th>{% trans "Number" %}</th>
       <th>{% trans "Customer" %}</th>
@@ -83,14 +55,38 @@
     </tr>
     {% for i in invoices %}
       <tr>
-        <td><a href="{% url 'invoice_detail' i.pk %}">{{ i.number }}</a></td>
+        <td><a class="invoice-number" href="{% url 'invoice_detail' i.pk %}">{{ i.number }}</a></td>
         <td>{{ i.customer }}</td>
         <td>{{ i.issue_date }}</td>
         <td>{{ i.due_date }}</td>
-        <td><span class="badge {{ i.status }}">{{ i.get_status_display }}</span></td>
-        <td><span class="badge {{ i.delivery_status }}">{{ i.get_delivery_status_display }}</span></td>
+        <td>
+          {% if can_manage_invoice %}
+            <form method="post" action="{% url 'invoice_status_update' i.pk %}" class="inline-status-form">{% csrf_token %}
+              <select name="status" class="status-select badge-select {{ i.status }}" onchange="this.form.submit()">
+                {% for key,label in status_choices %}
+                  <option value="{{ key }}"{% if i.status == key %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          {% else %}
+            <span class="badge {{ i.status }}">{{ i.get_status_display }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if can_manage_invoice %}
+            <form method="post" action="{% url 'invoice_status_update' i.pk %}" class="inline-status-form">{% csrf_token %}
+              <select name="delivery_status" class="status-select badge-select {{ i.delivery_status }}" onchange="this.form.submit()">
+                {% for key,label in delivery_status_choices %}
+                  <option value="{{ key }}"{% if i.delivery_status == key %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </form>
+          {% else %}
+            <span class="badge {{ i.delivery_status }}">{{ i.get_delivery_status_display }}</span>
+          {% endif %}
+        </td>
         <td>Rp {{ i.balance|money }}</td>
-        <td>Rp {{ i.total|money }}</td>
+        <td><strong>Rp {{ i.total|money }}</strong></td>
       </tr>
     {% empty %}
       <tr><td colspan="8">{% trans "No invoices yet" %}</td></tr>
@@ -99,15 +95,7 @@
 </article>
 
 <style>
-.page-actions{display:flex;gap:10px;align-items:center}
-.secondary{display:inline-flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px}
-.quick-filters{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}.filter-chip{display:inline-flex;align-items:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 14px}.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.filter-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:end}
-.filter-grid label{display:flex;flex-direction:column;gap:7px}
-.filter-actions{display:flex;gap:10px;align-items:center}
-.grid.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
-.stack{display:grid;gap:12px}
-.row{display:flex;justify-content:space-between;gap:16px;align-items:center}
-@media(max-width:900px){.filter-grid,.grid.two{grid-template-columns:1fr}}
+.invoices-head{margin-bottom:16px}.page-actions{display:flex;gap:10px;align-items:center}.secondary{display:inline-flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px}.invoice-toolbar{background:#fff;border:1px solid var(--line);border-radius:16px;padding:18px 22px;margin-bottom:18px;box-shadow:0 8px 24px #18212f0a}.summary-strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:16px}.summary-strip span{border-right:1px solid var(--line);padding-right:16px}.summary-strip span:last-child{border-right:0}.summary-strip small{display:block;color:var(--muted);font-size:12px}.summary-strip b{display:block;margin-top:4px;font-size:20px}.quick-filters{display:flex;gap:10px;flex-wrap:wrap}.filter-chip{display:inline-flex;align-items:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 13px}.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}.advanced-filters{margin-top:14px}.advanced-filters summary{cursor:pointer;color:var(--muted);font-weight:600}.filter-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:end;margin-top:14px}.filter-grid label{display:flex;flex-direction:column;gap:7px}.filter-actions{display:flex;gap:10px;align-items:center}.invoice-list-panel{overflow:auto}.invoice-list th,.invoice-list td{white-space:nowrap}.invoice-number{font-weight:700}.inline-status-form{margin:0}.status-select{appearance:none;border:0;border-radius:999px;padding:7px 32px 7px 13px;font-weight:700;cursor:pointer;background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);background-position:calc(100% - 15px) 50%,calc(100% - 10px) 50%;background-size:5px 5px,5px 5px;background-repeat:no-repeat}.badge-select.paid,.badge-select.shipped{background-color:#dff7eb;color:#28845a}.badge-select.partial,.badge-select.sent{background-color:#fff4db;color:#9a6a12}.badge-select.draft,.badge-select.unshipped{background-color:#eeeeee;color:#555}.badge-select.overdue,.badge-select.void{background-color:#ffe5e5;color:#9d2d2d}
+@media(max-width:900px){.summary-strip,.filter-grid{grid-template-columns:1fr}.summary-strip span{border-right:0;border-bottom:1px solid var(--line);padding-bottom:10px}.summary-strip span:last-child{border-bottom:0}}
 </style>
 {% endblock %}

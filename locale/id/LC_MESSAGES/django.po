@@ -246,6 +246,9 @@ msgstr "Total penjualan"
 msgid "All"
 msgstr "Semua"
 
+msgid "Advanced filters"
+msgstr "Filter lanjutan"
+
 msgid "Search"
 msgstr "Cari"
 
