@@ -308,7 +308,7 @@ def _batch_stock_in_rows(request, formset):
 def _replenish_initial_rows(products):
     rows = []
     for product in products:
-        suggested = product.low_stock_threshold - product.stock_quantity
+        suggested = (product.low_stock_threshold * 2) - product.stock_quantity
         if suggested <= 0:
             suggested = Decimal("1")
         rows.append({
@@ -380,7 +380,7 @@ def inventory_replenish(request):
     return render(request, "inventory/batch_in.html", {
         "formset": formset,
         "page_title": _("Quick replenish"),
-        "page_intro": _("Low-stock products are prefilled. Adjust the quantities, then save."),
+        "page_intro": _("Low-stock products are prefilled to reach a safer stock buffer. Adjust the quantities, then save."),
         "submit_label": _("Save replenishment"),
     })
 

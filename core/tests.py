@@ -1,4 +1,5 @@
 from datetime import date
+from decimal import Decimal
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
@@ -6,6 +7,7 @@ from django.utils import translation
 from .templatetags.core_tags import money
 from .models import Company, Customer, Product, Invoice, Membership, InventoryTransaction, SystemSetting, UserProfile
 from .version import VERSION
+from .views import _replenish_initial_rows
 
 class TenantIsolationTests(TestCase):
     def setUp(self):
@@ -131,13 +133,22 @@ class TenantIsolationTests(TestCase):
         self.assertContains(response, "This can also create new products.")
     def test_inventory_replenish_page_prefills_alert_products(self):
         product = Product.objects.get(company=self.a, name="A Product")
+        product.low_stock_threshold = 10
         product.stock_quantity = -2
-        product.save(update_fields=["stock_quantity"])
+        product.save(update_fields=["stock_quantity", "low_stock_threshold"])
         self.client.force_login(self.ua)
         response = self.client.get(reverse("inventory_replenish"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Quick replenish")
         self.assertContains(response, "A Product")
+        self.assertEqual(response.context["formset"].forms[0].initial["quantity"], Decimal("22"))
+    def test_replenish_initial_rows_target_safe_buffer(self):
+        product = Product.objects.get(company=self.a, name="A Product")
+        product.low_stock_threshold = 8
+        product.stock_quantity = 3
+        product.save(update_fields=["stock_quantity", "low_stock_threshold"])
+        rows = _replenish_initial_rows([product])
+        self.assertEqual(rows[0]["quantity"], Decimal("13"))
     def test_system_setting_default_allows_company_signup(self):
         setting = SystemSetting.get_solo()
         self.assertTrue(setting.allow_company_signup)
@@ -188,7 +199,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.3")
+        self.assertEqual(VERSION, "1.0.11")
 
     def test_superuser_can_open_user_management_without_seeing_tenant_content(self):
         superuser = User.objects.create_superuser("root", "root@example.com", "oldpass123")
