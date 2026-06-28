@@ -63,9 +63,11 @@ cd "$INSTALL_DIR"
 eval "$(load_env_file .env)"
 
 if [ -z "$DB_BACKUP" ]; then
+  # shellcheck disable=SC2012
   DB_BACKUP="$(ls -1t "$BACKUP_DIR"/db-*.sql 2>/dev/null | head -n 1 || true)"
 fi
 if [ -z "$MEDIA_BACKUP" ]; then
+  # shellcheck disable=SC2012
   MEDIA_BACKUP="$(ls -1t "$BACKUP_DIR"/media-*.tar.gz 2>/dev/null | head -n 1 || true)"
 fi
 

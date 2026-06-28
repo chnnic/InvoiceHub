@@ -17,6 +17,13 @@ while [ $# -gt 0 ]; do
       APP_PORT="${1#*=}"
       shift
       ;;
+    -h|--help)
+      cat <<'EOF'
+Usage: bash scripts/run_local_preview.sh [options]
+  --port PORT    Local preview port
+EOF
+      exit 0
+      ;;
     *)
       echo "Unknown argument: $1" >&2
       exit 1
@@ -36,6 +43,7 @@ write_env_file .env \
   "APP_PORT=${APP_PORT}"
 
 if [ -d .venv ]; then
+  # shellcheck disable=SC1091
   source .venv/bin/activate
 fi
 
