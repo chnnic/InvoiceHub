@@ -37,12 +37,12 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py migrate --noinput
-DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py runserver 0.0.0.0:10081
+DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py runserver 0.0.0.0:18081
 ```
 
 打开：
 
-- `http://localhost:10081/`
+- `http://localhost:18081/`
 
 ### 方式二：Docker 一键安装
 
@@ -78,7 +78,7 @@ curl -fsSL https://raw.githubusercontent.com/chnnic/InvoiceHub/main/scripts/inst
 1. 从 GitHub 克隆 InvoiceHub
 2. 自动生成 `SECRET_KEY` 和数据库密码
 3. 写入 VPS 端口、启动数据库和应用
-4. 直接通过 `http://<你的VPS IP>:10081` 访问
+4. 直接通过 `http://<你的VPS IP>:18081` 访问
 
 安装完成后，如要更新现有 VPS：
 

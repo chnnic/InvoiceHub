@@ -4,14 +4,14 @@ set -euo pipefail
 REPO_URL="${REPO_URL:-https://github.com/chnnic/InvoiceHub.git}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/invoicehub}"
-APP_PORT="${APP_PORT:-10081}"
+APP_PORT="${APP_PORT:-18081}"
 
 find_free_port() {
   python3 - <<'PY'
 import os
 import socket
 
-start = int(os.environ.get("APP_PORT", "10081"))
+start = int(os.environ.get("APP_PORT", "18081"))
 for port in [start, *range(start + 1, start + 1000)]:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
