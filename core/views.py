@@ -15,6 +15,8 @@ from django.db.models.functions import Coalesce, TruncMonth
 from django.http import HttpResponse
 from django.conf import settings
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils import translation
 from django.utils.translation import gettext as _
 from .decorators import tenant_required, superuser_required
@@ -395,18 +397,22 @@ def payment_add(request,pk):
 
 @tenant_required(["owner","admin","finance"])
 def invoice_status_update(request, pk):
+    fallback_url = reverse("invoice_detail", args=[pk])
+    next_url = request.POST.get("next") or fallback_url
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = fallback_url
     if request.method != "POST":
-        return redirect("invoice_detail", pk=pk)
+        return redirect(fallback_url)
     requested_status = request.POST.get("status", "")
     requested_delivery_status = request.POST.get("delivery_status", "")
     valid_statuses = {value for value, _ in Invoice.Status.choices}
     valid_delivery_statuses = {value for value, _ in Invoice.DeliveryStatus.choices}
     if requested_status and requested_status not in valid_statuses:
         messages.warning(request, _("Invalid invoice status."))
-        return redirect("invoice_detail", pk=pk)
+        return redirect(next_url)
     if requested_delivery_status and requested_delivery_status not in valid_delivery_statuses:
         messages.warning(request, _("Invalid delivery status."))
-        return redirect("invoice_detail", pk=pk)
+        return redirect(next_url)
     with transaction.atomic():
         invoice = get_object_or_404(Invoice.objects.select_for_update().prefetch_related("items", "payments"), pk=pk, company=request.company)
         changed = False
@@ -427,9 +433,9 @@ def invoice_status_update(request, pk):
             messages.success(request, _("Delivery status updated."))
             changed = True
         if not requested_status:
-            return redirect("invoice_detail", pk=pk)
+            return redirect(next_url)
         if invoice.status == requested_status:
-            return redirect("invoice_detail", pk=pk)
+            return redirect(next_url)
         if requested_status == Invoice.Status.VOID:
             if invoice.status != Invoice.Status.VOID:
                 if invoice.inventory_applied:
@@ -449,7 +455,7 @@ def invoice_status_update(request, pk):
             changed = True
         if not changed:
             messages.info(request, _("No status changes were made."))
-    return redirect("invoice_detail", pk=pk)
+    return redirect(next_url)
 @tenant_required(["owner","admin","finance"])
 def invoice_void(request, pk):
     if request.method != "POST":

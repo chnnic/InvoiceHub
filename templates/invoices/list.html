@@ -62,6 +62,7 @@
         <td>
           {% if can_manage_invoice %}
             <form method="post" action="{% url 'invoice_status_update' i.pk %}" class="inline-status-form">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
               <select name="status" class="status-select badge-select {{ i.status }}" onchange="this.form.submit()">
                 {% for key,label in status_choices %}
                   <option value="{{ key }}"{% if i.status == key %} selected{% endif %}>{{ label }}</option>
@@ -75,6 +76,7 @@
         <td>
           {% if can_manage_invoice %}
             <form method="post" action="{% url 'invoice_status_update' i.pk %}" class="inline-status-form">{% csrf_token %}
+              <input type="hidden" name="next" value="{{ request.get_full_path }}">
               <select name="delivery_status" class="status-select badge-select {{ i.delivery_status }}" onchange="this.form.submit()">
                 {% for key,label in delivery_status_choices %}
                   <option value="{{ key }}"{% if i.delivery_status == key %} selected{% endif %}>{{ label }}</option>

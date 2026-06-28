@@ -237,7 +237,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.21")
+        self.assertEqual(VERSION, "1.0.24")
 
     def test_update_container_page_shows_manual_ssh_command(self):
         superuser = User.objects.create_superuser("root5", "root5@example.com", "oldpass123")
@@ -413,12 +413,36 @@ class TenantIsolationTests(TestCase):
         self.assertContains(response, "Total sales")
         self.assertContains(response, "inline-status-form")
         self.assertContains(response, reverse("invoice_status_update", args=[Invoice.objects.get(company=self.a).pk]))
+        self.assertContains(response, 'name="next"')
         self.assertContains(response, "Unpaid")
         self.assertContains(response, "Shipped")
         response = self.client.get(reverse("invoices_csv"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Number")
         self.assertContains(response, "Delivery status")
+
+    def test_invoice_list_status_update_returns_to_list(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"), data)
+        invoice = Invoice.objects.get(company=self.a)
+        list_url = reverse("invoices") + "?status=draft"
+        response = self.client.post(reverse("invoice_status_update", args=[invoice.pk]), {"status": "sent", "next": list_url})
+        self.assertRedirects(response, list_url, fetch_redirect_response=False)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "sent")
+
+    def test_invoice_status_dropdowns_are_translated(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"), data)
+        response = self.client.get("/zh-hans/invoices/")
+        self.assertContains(response, "草稿")
+        self.assertContains(response, "未发货")
+        self.assertNotContains(response, ">Draft<")
+        self.assertNotContains(response, ">Unshipped<")
 
     def test_invoice_pdf_download_generates_pdf(self):
         self.client.force_login(self.ua)

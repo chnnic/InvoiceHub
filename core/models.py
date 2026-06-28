@@ -117,7 +117,7 @@ class InventoryTransaction(TenantModel):
 
 class Invoice(TenantModel):
     class Status(models.TextChoices):
-        DRAFT="draft", "Draft"; SENT="sent", "Sent"; PARTIAL="partial", "Partial"; PAID="paid", "Paid"; OVERDUE="overdue", "Overdue"; VOID="void", "Void"
+        DRAFT="draft", _("Draft"); SENT="sent", _("Sent"); PARTIAL="partial", _("Partial"); PAID="paid", _("Paid"); OVERDUE="overdue", _("Overdue"); VOID="void", _("Void")
     class DeliveryStatus(models.TextChoices):
         UNSHIPPED="unshipped", _("Unshipped"); SHIPPED="shipped", _("Shipped")
     number = models.CharField(max_length=40)
