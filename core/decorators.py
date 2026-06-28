@@ -3,9 +3,19 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect
 
+def password_change_required(view):
+    @login_required
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        profile = getattr(request.user, "profile", None)
+        if profile and profile.must_change_password and request.resolver_match and request.resolver_match.url_name != "password_change_required":
+            return redirect("password_change_required")
+        return view(request, *args, **kwargs)
+    return wrapped
+
 def tenant_required(roles=None):
     def deco(view):
-        @login_required
+        @password_change_required
         @wraps(view)
         def wrapped(request, *args, **kwargs):
             membership=request.user.memberships.filter(active=True).select_related("company").first()

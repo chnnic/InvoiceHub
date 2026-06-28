@@ -4,7 +4,8 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import translation
 from .templatetags.core_tags import money
-from .models import Company, Customer, Product, Invoice, Membership, InventoryTransaction, SystemSetting
+from .models import Company, Customer, Product, Invoice, Membership, InventoryTransaction, SystemSetting, UserProfile
+from .version import VERSION
 
 class TenantIsolationTests(TestCase):
     def setUp(self):
@@ -95,3 +96,36 @@ class TenantIsolationTests(TestCase):
         setting.save()
         response = self.client.get(reverse("signup"))
         self.assertContains(response, "Company signup disabled")
+
+    def test_superuser_forced_password_change_flow(self):
+        superuser = User.objects.create_superuser("admin2", "admin2@example.com", "oldpass123")
+        UserProfile.objects.create(user=superuser, must_change_password=True)
+        self.client.force_login(superuser)
+        response = self.client.get(reverse("dashboard"))
+        self.assertRedirects(response, reverse("password_change_required"), fetch_redirect_response=False)
+
+        response = self.client.post(reverse("password_change_required"), {
+            "old_password": "oldpass123",
+            "new_password1": "newpass12345",
+            "new_password2": "newpass12345",
+        })
+        self.assertRedirects(response, reverse("dashboard"), fetch_redirect_response=False)
+        superuser.refresh_from_db()
+        self.assertTrue(superuser.check_password("newpass12345"))
+        self.assertFalse(superuser.profile.must_change_password)
+
+    def test_superuser_password_change_page_updates_password(self):
+        superuser = User.objects.create_superuser("admin3", "admin3@example.com", "oldpass123")
+        self.client.force_login(superuser)
+        response = self.client.post(reverse("superuser_password"), {
+            "new_password1": "newpass12345",
+            "new_password2": "newpass12345",
+            "require_change_on_next_login": "on",
+        })
+        self.assertRedirects(response, reverse("system_settings"), fetch_redirect_response=False)
+        superuser.refresh_from_db()
+        self.assertTrue(superuser.check_password("newpass12345"))
+        self.assertTrue(superuser.profile.must_change_password)
+
+    def test_version_constant_is_present(self):
+        self.assertEqual(VERSION, "1.0.1")

@@ -1,9 +1,9 @@
 from django import forms
-from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.contrib.auth.models import User
 from django.forms import inlineformset_factory, formset_factory
 from django.utils.translation import gettext_lazy as _
-from .models import Company, Customer, Product, Invoice, InvoiceItem, Payment, Membership, InventoryTransaction, SystemSetting
+from .models import Company, Customer, Product, Invoice, InvoiceItem, Payment, Membership, InventoryTransaction, SystemSetting, UserProfile
 
 class StyledForm:
     def __init__(self, *args, **kwargs):
@@ -58,6 +58,22 @@ class SystemSettingForm(StyledForm, forms.ModelForm):
         model = SystemSetting
         fields = ("allow_company_signup",)
         labels = {"allow_company_signup": _("Allow company signup")}
+
+class AdminPasswordResetForm(StyledForm, forms.Form):
+    new_password1 = forms.CharField(widget=forms.PasswordInput, label=_("New password"))
+    new_password2 = forms.CharField(widget=forms.PasswordInput, label=_("Confirm password"))
+    require_change_on_next_login = forms.BooleanField(required=False, initial=False, label=_("Force password change on next login"))
+
+    def clean(self):
+        data = super().clean()
+        p1 = data.get("new_password1")
+        p2 = data.get("new_password2")
+        if p1 and p2 and p1 != p2:
+            raise forms.ValidationError(_("The two password fields didn’t match."))
+        return data
+
+class FirstLoginPasswordChangeForm(StyledForm, PasswordChangeForm):
+    pass
 
 class InventoryChangeForm(StyledForm, forms.Form):
     kind=forms.ChoiceField(choices=[("in",_("Stock in")),("out",_("Stock out")),("adjust",_("Set exact stock"))],label=_("Operation"))

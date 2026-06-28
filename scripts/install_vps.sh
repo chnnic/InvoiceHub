@@ -70,6 +70,8 @@ else
 fi
 
 export APP_PORT SUPERUSER_USERNAME SUPERUSER_EMAIL SUPERUSER_PASSWORD
+GITHUB_VERSION="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
+export GITHUB_VERSION
 
 python3 - <<'PY'
 from pathlib import Path
@@ -99,6 +101,8 @@ data["SUPERUSER_PASSWORD"] = os.environ["SUPERUSER_PASSWORD"]
 
 env_path.write_text("\n".join(f"{k}={v}" for k, v in data.items()) + "\n")
 PY
+
+printf '%s\n' "${GITHUB_VERSION}" > .github-version
 
 docker compose up -d --build
 sleep 8

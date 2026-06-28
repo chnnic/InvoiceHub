@@ -11,8 +11,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import translation
 from django.utils.translation import gettext as _
 from .decorators import tenant_required, superuser_required
-from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet, SystemSettingForm
-from .models import Company, Customer, Product, Invoice, Payment, Membership, InventoryTransaction, SystemSetting
+from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet, SystemSettingForm, AdminPasswordResetForm, FirstLoginPasswordChangeForm
+from .models import Company, Customer, Product, Invoice, Payment, Membership, InventoryTransaction, SystemSetting, UserProfile
 from .pdf import build_invoice_pdf
 
 def switch_language(request):
@@ -41,6 +41,7 @@ def signup(request):
     if request.method=="POST" and form.is_valid():
         with transaction.atomic():
             user=form.save(); company=Company.objects.create(name=form.cleaned_data["company_name"]); Membership.objects.create(user=user, company=company, role="owner")
+            UserProfile.objects.get_or_create(user=user, defaults={"must_change_password": False})
         login(request,user); translation.activate(form.cleaned_data["language"]); request.session[translation.LANGUAGE_SESSION_KEY if hasattr(translation,"LANGUAGE_SESSION_KEY") else "django_language"]=form.cleaned_data["language"]
         return redirect("dashboard")
     return render(request,"registration/signup.html",{"form":form})
@@ -53,6 +54,19 @@ def dashboard(request):
     customers=(Customer.objects.filter(company=request.company).annotate(sales=Coalesce(Sum("invoices__payments__amount"),Decimal("0"),output_field=DecimalField())).order_by("-sales")[:8])
     low_stock_count=Product.objects.filter(company=request.company,track_inventory=True,stock_quantity__lte=F("low_stock_threshold"),active=True).count()
     return render(request,"dashboard.html",{"invoice_count":invoices.count(),"received":Payment.objects.filter(company=request.company).aggregate(v=Sum("amount"))["v"] or 0,"outstanding":sum((i.balance for i in invoices.prefetch_related("items","payments")),Decimal("0")),"monthly":monthly,"top_customers":customers,"recent":invoices[:8],"low_stock_count":low_stock_count})
+
+@tenant_required()
+def ensure_password_change(request):
+    profile, _ = UserProfile.objects.get_or_create(user=request.user)
+    if not profile.must_change_password:
+        return redirect("dashboard")
+    form = FirstLoginPasswordChangeForm(user=request.user, data=request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        profile.must_change_password = False
+        profile.save(update_fields=["must_change_password"])
+        return redirect("dashboard")
+    return render(request, "password_change_required.html", {"form": form})
 
 @tenant_required()
 def customers(request): return render(request,"generic/list.html",{"title":"Customers / 客户 / Pelanggan","objects":Customer.objects.filter(company=request.company),"fields":["name","email","phone"],"create_url":"customer_create"})
@@ -131,6 +145,18 @@ def system_settings(request):
         form.save()
         return redirect("system_settings")
     return render(request, "system_settings.html", {"form": form})
+
+@superuser_required
+def superuser_password(request):
+    form = AdminPasswordResetForm(request.POST or None)
+    if request.method == "POST" and form.is_valid():
+        request.user.set_password(form.cleaned_data["new_password1"])
+        request.user.save(update_fields=["password"])
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        profile.must_change_password = form.cleaned_data["require_change_on_next_login"]
+        profile.save(update_fields=["must_change_password"])
+        return redirect("system_settings")
+    return render(request, "admin_password_change.html", {"form": form})
 
 @superuser_required
 def update_container(request):
