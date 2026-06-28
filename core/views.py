@@ -335,6 +335,31 @@ def inventory_alerts(request):
         "critical_count": products.filter(stock_quantity__lt=0).count(),
     })
 
+@tenant_required()
+def inventory_alerts_csv(request):
+    import csv
+    from io import StringIO
+    products = Product.objects.filter(
+        company=request.company,
+        active=True,
+        track_inventory=True,
+        stock_quantity__lte=F("low_stock_threshold"),
+    ).order_by("stock_quantity", "name")
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Product", "Current stock", "Alert threshold", "Unit", "Status"])
+    for product in products:
+        writer.writerow([
+            product.name,
+            product.stock_quantity,
+            product.low_stock_threshold,
+            product.unit,
+            "Negative stock" if product.stock_warning_level == "critical" else "Low stock",
+        ])
+    response = HttpResponse(buffer.getvalue(), content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="inventory-alerts.csv"'
+    return response
+
 @tenant_required(["owner","admin","finance"])
 def inventory_replenish(request):
     products = Product.objects.filter(

@@ -107,6 +107,15 @@ class TenantIsolationTests(TestCase):
         self.assertContains(response, "Inventory alerts")
         self.assertContains(response, "A Product")
         self.assertContains(response, "Quick replenish")
+    def test_inventory_alerts_csv_exports_rows(self):
+        product=Product.objects.get(company=self.a,name="A Product")
+        product.stock_quantity = -2
+        product.save(update_fields=["stock_quantity"])
+        self.client.force_login(self.ua)
+        response=self.client.get(reverse("inventory_alerts_csv"))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "text/csv")
+        self.assertContains(response, "A Product")
     def test_batch_stock_in_updates_existing_and_creates_new_product(self):
         existing=Product.objects.get(company=self.a,name="A Product")
         self.client.force_login(self.ua)
