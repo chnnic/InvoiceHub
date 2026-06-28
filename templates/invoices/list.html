@@ -1,5 +1,113 @@
 {% extends 'base.html' %}{% load i18n core_tags %}
 {% block content %}
-<div class="pagehead"><h1>{% trans "Invoices" %}</h1><a class="primary" href="{% url 'invoice_create' %}">+ {% trans "New invoice" %}</a></div>
-<article class="panel"><table><tr><th>{% trans "Number" %}</th><th>{% trans "Customer" %}</th><th>{% trans "Issue date" %}</th><th>{% trans "Due date" %}</th><th>{% trans "Status" %}</th><th>{% trans "Total" %}</th></tr>{% for i in invoices %}<tr><td><a href="{% url 'invoice_detail' i.pk %}">{{ i.number }}</a></td><td>{{ i.customer }}</td><td>{{ i.issue_date }}</td><td>{{ i.due_date }}</td><td><span class="badge {{ i.status }}">{{ i.get_status_display }}</span></td><td>Rp {{ i.total|money }}</td></tr>{% empty %}<tr><td colspan="6">{% trans "No invoices yet" %}</td></tr>{% endfor %}</table></article>
+<div class="pagehead">
+  <div>
+    <h1>{% trans "Invoices" %}</h1>
+    <p>{% trans "Filter, export, and review monthly or customer sales." %}</p>
+  </div>
+  <div class="page-actions">
+    <a class="secondary" href="{% url 'invoices_csv' %}{% if querystring %}?{{ querystring }}{% endif %}">{% trans "Export CSV" %}</a>
+    <a class="primary" href="{% url 'invoice_create' %}">+ {% trans "New invoice" %}</a>
+  </div>
+</div>
+
+<div class="cards">
+  <article><small>{% trans "Invoices" %}</small><strong>{{ summary.invoice_count }}</strong></article>
+  <article><small>{% trans "Total sales" %}</small><strong>Rp {{ summary.invoice_total|money }}</strong></article>
+  <article><small>{% trans "Paid" %}</small><strong>{{ summary.status_counts.paid|default:0 }}</strong></article>
+  <article><small>{% trans "Overdue" %}</small><strong>{{ summary.status_counts.overdue|default:0 }}</strong></article>
+</div>
+
+<nav class="quick-filters">
+  <a class="filter-chip{% if filters.quick == 'unpaid' %} active{% endif %}" href="{% url 'invoices' %}?quick=unpaid">{% trans "Unpaid" %}</a>
+  <a class="filter-chip{% if filters.status == 'paid' %} active{% endif %}" href="{% url 'invoices' %}?status=paid">{% trans "Paid" %}</a>
+  <a class="filter-chip{% if filters.delivery_status == 'shipped' %} active{% endif %}" href="{% url 'invoices' %}?delivery_status=shipped">{% trans "Shipped" %}</a>
+  <a class="filter-chip{% if filters.delivery_status == 'unshipped' %} active{% endif %}" href="{% url 'invoices' %}?delivery_status=unshipped">{% trans "Unshipped" %}</a>
+  <a class="filter-chip{% if filters.status == 'draft' %} active{% endif %}" href="{% url 'invoices' %}?status=draft">{% trans "Draft" %}</a>
+</nav>
+
+<article class="panel formpanel filter-panel">
+  <form method="get" class="filter-grid">
+    <label>{% trans "Search" %}<input name="q" value="{{ filters.q }}" placeholder="{% trans 'Invoice number' %}"></label>
+    <label>{% trans "Status" %}<select name="status"><option value="">{% trans "All" %}</option>{% for key,label in status_choices %}<option value="{{ key }}"{% if filters.status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>{% trans "Delivery status" %}<select name="delivery_status"><option value="">{% trans "All" %}</option>{% for key,label in delivery_status_choices %}<option value="{{ key }}"{% if filters.delivery_status == key %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>{% trans "Customer" %}<select name="customer"><option value="">{% trans "All" %}</option>{% for customer in customers %}<option value="{{ customer.pk }}"{% if filters.customer == customer.pk|stringformat:'s' %} selected{% endif %}>{{ customer.name }}</option>{% endfor %}</select></label>
+    <label>{% trans "Month" %}<input type="month" name="month" value="{{ filters.month }}"></label>
+    <div class="filter-actions"><button class="primary" type="submit">{% trans "Apply filters" %}</button><a href="{% url 'invoices' %}">{% trans "Reset" %}</a></div>
+  </form>
+</article>
+
+<div class="grid two">
+  <article class="panel">
+    <h2>{% trans "Status breakdown" %}</h2>
+    <div class="stack">
+      {% for key,label,count in summary.status_rows %}
+        <div class="row"><span class="badge {{ key }}">{{ label }}</span><b>{{ count }}</b></div>
+      {% endfor %}
+    </div>
+  </article>
+  <article class="panel">
+    <h2>{% trans "Top customers" %}</h2>
+    <div class="stack">
+      {% for name,total in summary.customer_totals %}
+        <div class="row"><span>{{ name }}</span><b>Rp {{ total|money }}</b></div>
+      {% empty %}
+        <p class="hint">{% trans "No customer totals yet." %}</p>
+      {% endfor %}
+    </div>
+  </article>
+</div>
+
+<article class="panel">
+  <h2>{% trans "Monthly sales" %}</h2>
+  <div class="stack">
+    {% for month,total in summary.month_totals %}
+      <div class="row"><span>{{ month }}</span><b>Rp {{ total|money }}</b></div>
+    {% empty %}
+      <p class="hint">{% trans "No monthly data yet." %}</p>
+    {% endfor %}
+  </div>
+</article>
+
+<article class="panel">
+  <table>
+    <tr>
+      <th>{% trans "Number" %}</th>
+      <th>{% trans "Customer" %}</th>
+      <th>{% trans "Issue date" %}</th>
+      <th>{% trans "Due date" %}</th>
+      <th>{% trans "Status" %}</th>
+      <th>{% trans "Delivery status" %}</th>
+      <th>{% trans "Balance" %}</th>
+      <th>{% trans "Total" %}</th>
+    </tr>
+    {% for i in invoices %}
+      <tr>
+        <td><a href="{% url 'invoice_detail' i.pk %}">{{ i.number }}</a></td>
+        <td>{{ i.customer }}</td>
+        <td>{{ i.issue_date }}</td>
+        <td>{{ i.due_date }}</td>
+        <td><span class="badge {{ i.status }}">{{ i.get_status_display }}</span></td>
+        <td><span class="badge {{ i.delivery_status }}">{{ i.get_delivery_status_display }}</span></td>
+        <td>Rp {{ i.balance|money }}</td>
+        <td>Rp {{ i.total|money }}</td>
+      </tr>
+    {% empty %}
+      <tr><td colspan="8">{% trans "No invoices yet" %}</td></tr>
+    {% endfor %}
+  </table>
+</article>
+
+<style>
+.page-actions{display:flex;gap:10px;align-items:center}
+.secondary{display:inline-flex;align-items:center;background:#fff;border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+.quick-filters{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}.filter-chip{display:inline-flex;align-items:center;border:1px solid var(--line);background:#fff;border-radius:999px;padding:9px 14px}.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.filter-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:end}
+.filter-grid label{display:flex;flex-direction:column;gap:7px}
+.filter-actions{display:flex;gap:10px;align-items:center}
+.grid.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.stack{display:grid;gap:12px}
+.row{display:flex;justify-content:space-between;gap:16px;align-items:center}
+@media(max-width:900px){.filter-grid,.grid.two{grid-template-columns:1fr}}
+</style>
 {% endblock %}

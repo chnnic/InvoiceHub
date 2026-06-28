@@ -233,3 +233,498 @@ msgid "Add row"
 msgstr "Tambah baris"
 msgid "Save batch stock in"
 msgstr "Simpan stok masuk massal"
+
+msgid "Filter, export, and review monthly or customer sales."
+msgstr "Filter, ekspor, dan tinjau penjualan bulanan atau per pelanggan."
+
+msgid "Export CSV"
+msgstr "Ekspor CSV"
+
+msgid "Total sales"
+msgstr "Total penjualan"
+
+msgid "All"
+msgstr "Semua"
+
+msgid "Search"
+msgstr "Cari"
+
+msgid "Month"
+msgstr "Bulan"
+
+msgid "Apply filters"
+msgstr "Terapkan filter"
+
+msgid "Reset"
+msgstr "Reset"
+
+msgid "Status breakdown"
+msgstr "Rincian status"
+
+msgid "No customer totals yet."
+msgstr "Belum ada total pelanggan."
+
+msgid "No monthly data yet."
+msgstr "Belum ada data bulanan."
+
+msgid "Edit"
+msgstr "Edit"
+
+msgid "Delete this invoice?"
+msgstr "Hapus faktur ini?"
+
+msgid "Commercial invoice"
+msgstr "Faktur komersial"
+
+msgid "Currency"
+msgstr "Mata uang"
+
+msgid "No payment information configured."
+msgstr "Informasi pembayaran belum diatur."
+
+msgid "Prepared by"
+msgstr "Dibuat oleh"
+
+msgid "Authorized signature"
+msgstr "Tanda tangan resmi"
+
+msgid "Current invoice number"
+msgstr "Nomor faktur saat ini"
+
+msgid "Invoice number"
+msgstr "Nomor faktur"
+
+msgid "Edit invoice"
+msgstr "Edit faktur"
+
+msgid "Invoice updated."
+msgstr "Faktur diperbarui."
+
+msgid "Invoice voided."
+msgstr "Faktur dibatalkan."
+
+msgid "Invoice deleted."
+msgstr "Faktur dihapus."
+
+msgid "Invoice voided: %(number)s"
+msgstr "Faktur dibatalkan: %(number)s"
+
+msgid "Invoice deleted: %(number)s"
+msgstr "Faktur dihapus: %(number)s"
+
+msgid "Adjusted by invoice %(number)s"
+msgstr "Disesuaikan oleh faktur %(number)s"
+
+msgid "Issued by invoice %(number)s"
+msgstr "Dikeluarkan oleh faktur %(number)s"
+
+msgid "Restored by invoice %(number)s"
+msgstr "Dikembalikan oleh faktur %(number)s"
+
+msgid "Void invoices cannot be edited."
+msgstr "Faktur batal tidak dapat diedit."
+
+msgid "Void invoices cannot receive payments."
+msgstr "Faktur batal tidak dapat menerima pembayaran."
+
+msgid "Product %(name)s is now negative. Please replenish it soon."
+msgstr "Stok produk %(name)s sudah negatif. Segera lakukan restock."
+
+msgid "Add at least one invoice line item."
+msgstr "Tambahkan minimal satu rincian faktur."
+
+msgid "Quantity must be greater than zero."
+msgstr "Jumlah harus lebih besar dari nol."
+
+msgid "Unit price must be greater than zero."
+msgstr "Harga satuan harus lebih besar dari nol."
+
+msgid "Quick replenish"
+msgstr "Restock cepat"
+
+msgid "Save replenishment"
+msgstr "Simpan restock"
+
+msgid "Replenishment"
+msgstr "Restock"
+
+msgid "Replenishment saved."
+msgstr "Restock disimpan."
+
+msgid "Low-stock products are prefilled to reach a safer stock buffer. Adjust the quantities, then save."
+msgstr "Produk stok rendah sudah diisi agar mencapai buffer aman. Sesuaikan jumlahnya lalu simpan."
+
+msgid "Select an existing product or enter a new product on each row. This can also create new products."
+msgstr "Pilih produk yang ada atau masukkan produk baru pada setiap baris. Ini juga dapat membuat produk baru."
+
+msgid "Showing negative-stock products only."
+msgstr "Hanya menampilkan produk stok negatif."
+
+msgid "Showing low-stock products only."
+msgstr "Hanya menampilkan produk stok rendah."
+
+msgid "Batch stock in saved."
+msgstr "Stok masuk massal disimpan."
+
+msgid "Inventory alerts"
+msgstr "Peringatan stok"
+
+msgid "All alerts"
+msgstr "Semua peringatan"
+
+msgid "Negative stock"
+msgstr "Stok negatif"
+
+msgid "Urgent replenishment"
+msgstr "Restock mendesak"
+
+msgid "Low stock reminder"
+msgstr "Pengingat stok rendah"
+
+msgid "Negative stock alert"
+msgstr "Peringatan stok negatif"
+
+msgid "Low stock alert"
+msgstr "Peringatan stok rendah"
+
+msgid "No inventory alerts right now"
+msgstr "Tidak ada peringatan stok saat ini"
+
+msgid "Export replenishment"
+msgstr "Ekspor restock"
+
+msgid "Review now"
+msgstr "Tinjau sekarang"
+
+msgid "Products that need replenishment right now."
+msgstr "Produk yang perlu restock sekarang."
+
+msgid "These products are already negative. Please restock them as soon as possible."
+msgstr "Produk ini sudah negatif. Restock secepatnya."
+
+msgid "These products are near the threshold. Please prepare replenishment soon."
+msgstr "Produk ini mendekati batas peringatan. Siapkan restock segera."
+
+msgid "Stock is now negative. Please replenish inventory soon."
+msgstr "Stok sekarang negatif. Segera lakukan restock."
+
+msgid "Negative stock: please replenish immediately."
+msgstr "Stok negatif: segera restock."
+
+msgid "Low stock: please replenish soon."
+msgstr "Stok rendah: segera restock."
+
+msgid "No products yet"
+msgstr "Belum ada produk"
+
+msgid "Product"
+msgstr "Produk"
+
+msgid "System settings"
+msgstr "Pengaturan sistem"
+
+msgid "Allow company signup"
+msgstr "Izinkan pendaftaran perusahaan"
+
+msgid "Save system settings"
+msgstr "Simpan pengaturan sistem"
+
+msgid "Total users"
+msgstr "Total pengguna"
+
+msgid "Active users"
+msgstr "Pengguna aktif"
+
+msgid "Open update guide"
+msgstr "Buka panduan update"
+
+msgid "Open user management"
+msgstr "Buka manajemen pengguna"
+
+msgid "Global controls, access and version info"
+msgstr "Kontrol global, akses, dan info versi"
+
+msgid "Global controls for signup and operations"
+msgstr "Kontrol global untuk pendaftaran dan operasional"
+
+msgid "User management"
+msgstr "Manajemen pengguna"
+
+msgid "Users"
+msgstr "Pengguna"
+
+msgid "Inactive users"
+msgstr "Pengguna nonaktif"
+
+msgid "Actions"
+msgstr "Aksi"
+
+msgid "Edit user"
+msgstr "Edit pengguna"
+
+msgid "Select a user to edit."
+msgstr "Pilih pengguna untuk diedit."
+
+msgid "Save user"
+msgstr "Simpan pengguna"
+
+msgid "Reset password"
+msgstr "Reset kata sandi"
+
+msgid "Enable"
+msgstr "Aktifkan"
+
+msgid "Disable"
+msgstr "Nonaktifkan"
+
+msgid "Username"
+msgstr "Nama pengguna"
+
+msgid "New password"
+msgstr "Kata sandi baru"
+
+msgid "Confirm password"
+msgstr "Konfirmasi kata sandi"
+
+msgid "Force password change on next login"
+msgstr "Paksa ganti kata sandi saat login berikutnya"
+
+msgid "Staff access"
+msgstr "Akses staf"
+
+msgid "Superuser"
+msgstr "Superuser"
+
+msgid "User status updated."
+msgstr "Status pengguna diperbarui."
+
+msgid "User updated."
+msgstr "Pengguna diperbarui."
+
+msgid "Password reset for %(user)s. Temporary password: %(password)s"
+msgstr "Kata sandi %(user)s direset. Kata sandi sementara: %(password)s"
+
+msgid "Tenant content stays hidden from system admin tools."
+msgstr "Konten tenant tetap tersembunyi dari alat admin sistem."
+
+msgid "Manage accounts without exposing company documents or customer data"
+msgstr "Kelola akun tanpa membuka dokumen perusahaan atau data pelanggan"
+
+msgid "Change admin password"
+msgstr "Ubah kata sandi admin"
+
+msgid "Change password"
+msgstr "Ubah kata sandi"
+
+msgid "Save password"
+msgstr "Simpan kata sandi"
+
+msgid "Save new password"
+msgstr "Simpan kata sandi baru"
+
+msgid "Reset the superuser password and optionally force a change on next login."
+msgstr "Reset kata sandi superuser dan opsional paksa ganti saat login berikutnya."
+
+msgid "The two password fields didn’t match."
+msgstr "Dua kolom kata sandi tidak sama."
+
+msgid "You must change your password before continuing."
+msgstr "Anda harus mengganti kata sandi sebelum melanjutkan."
+
+msgid "Company signup disabled"
+msgstr "Pendaftaran perusahaan dinonaktifkan"
+
+msgid "Please contact the administrator."
+msgstr "Silakan hubungi administrator."
+
+msgid "Update InvoiceHub from GitHub"
+msgstr "Update InvoiceHub dari GitHub"
+
+msgid "Use the built-in updater when supported, or run the SSH command below on your VPS."
+msgstr "Gunakan updater bawaan jika didukung, atau jalankan perintah SSH di bawah pada VPS."
+
+msgid "Web update is available."
+msgstr "Update web tersedia."
+
+msgid "Web update is not available in this deployment."
+msgstr "Update web tidak tersedia pada deployment ini."
+
+msgid "Why manual SSH may be required"
+msgstr "Mengapa SSH manual mungkin diperlukan"
+
+msgid "Many Docker deployments do not mount the host Docker socket into the web container. In that setup, the app can read GitHub but cannot rebuild host containers by itself."
+msgstr "Banyak deployment Docker tidak memasang Docker socket host ke container web. Dalam kondisi itu aplikasi dapat membaca GitHub tetapi tidak dapat rebuild container host sendiri."
+
+msgid "Recommended VPS command"
+msgstr "Perintah VPS yang disarankan"
+
+msgid "Run web update now"
+msgstr "Jalankan update web sekarang"
+
+msgid "Use SSH to update this VPS."
+msgstr "Gunakan SSH untuk mengupdate VPS ini."
+
+msgid "If update fails"
+msgstr "Jika update gagal"
+
+msgid "Check the install path, Git access, and Docker Compose availability on the VPS. If web update is unsupported, use the SSH command above."
+msgstr "Periksa path instalasi, akses Git, dan ketersediaan Docker Compose pada VPS. Jika update web tidak didukung, gunakan perintah SSH di atas."
+
+msgid "Pull latest source"
+msgstr "Tarik source terbaru"
+
+msgid "Rebuild containers"
+msgstr "Rebuild container"
+
+msgid "Completed"
+msgstr "Selesai"
+
+msgid "Ready"
+msgstr "Siap"
+
+msgid "Problems"
+msgstr "Masalah"
+
+msgid "Output"
+msgstr "Output"
+
+msgid "Update finished successfully."
+msgstr "Update berhasil selesai."
+
+msgid "InvoiceHub has pulled the latest GitHub version and rebuilt the Docker stack."
+msgstr "InvoiceHub telah menarik versi GitHub terbaru dan rebuild Docker stack."
+
+msgid "The updater pulls from GitHub first, then rebuilds the app container while keeping your database and media volumes."
+msgstr "Updater menarik dari GitHub lebih dulu, lalu rebuild container aplikasi tanpa menghapus database dan volume media."
+
+msgid "Docker CLI is not available in the web container."
+msgstr "Docker CLI tidak tersedia di container web."
+
+msgid "The host Docker socket is not mounted into InvoiceHub, so web updates cannot rebuild the VPS containers."
+msgstr "Docker socket host tidak dipasang ke InvoiceHub, sehingga update web tidak dapat rebuild container VPS."
+
+msgid "Docker Compose is not available in the web container."
+msgstr "Docker Compose tidak tersedia di container web."
+
+msgid "Version"
+msgstr "Versi"
+
+msgid "Local version"
+msgstr "Versi lokal"
+
+msgid "GitHub version"
+msgstr "Versi GitHub"
+
+msgid "Version status"
+msgstr "Status versi"
+
+msgid "Local build"
+msgstr "Build lokal"
+
+msgid "InvoiceHub stable"
+msgstr "InvoiceHub stabil"
+
+msgid "UI mockup"
+msgstr "Mockup UI"
+
+msgid "Local preview"
+msgstr "Preview lokal"
+
+msgid "Control center"
+msgstr "Pusat kontrol"
+
+msgid "Safe update flow"
+msgstr "Alur update aman"
+
+msgid "Admin surfaces in one view"
+msgstr "Tampilan admin dalam satu halaman"
+
+msgid "Recent admin surfaces"
+msgstr "Area admin terbaru"
+
+msgid "Open system settings"
+msgstr "Buka pengaturan sistem"
+
+msgid "Fresh updates, user control, and a cleaner admin flow."
+msgstr "Update terbaru, kontrol pengguna, dan alur admin yang lebih bersih."
+
+msgid "A local preview page for dashboard styling and layout iteration."
+msgstr "Halaman preview lokal untuk iterasi gaya dan layout dasbor."
+
+msgid "Use this page to judge spacing, card hierarchy, and overall visual rhythm before pushing to production."
+msgstr "Gunakan halaman ini untuk menilai jarak, hierarki kartu, dan ritme visual sebelum produksi."
+
+msgid "Account safety and permission control"
+msgstr "Keamanan akun dan kontrol izin"
+
+msgid "System deployment and version sync"
+msgstr "Deployment sistem dan sinkronisasi versi"
+
+msgid "Open"
+msgstr "Buka"
+
+msgid "Step 1"
+msgstr "Langkah 1"
+
+msgid "Step 2"
+msgstr "Langkah 2"
+
+msgid "Step 3"
+msgstr "Langkah 3"
+
+msgid "SSH into VPS"
+msgstr "SSH ke VPS"
+
+msgid "Normal progress messages"
+msgstr "Pesan progres normal"
+
+msgid "Warnings or errors to fix"
+msgstr "Peringatan atau error yang perlu diperbaiki"
+
+msgid "You can update from the panel, or run the SSH command manually if you prefer."
+msgstr "Anda dapat update dari panel, atau menjalankan perintah SSH secara manual."
+
+msgid "Companies"
+msgstr "Perusahaan"
+
+msgid "Show PPN on invoices"
+msgstr "Tampilkan PPN pada faktur"
+
+msgid "Fill balance"
+msgstr "Isi sisa tagihan"
+
+msgid "Change invoice status"
+msgstr "Ubah status faktur"
+
+msgid "Update status"
+msgstr "Perbarui status"
+
+msgid "Invalid invoice status."
+msgstr "Status faktur tidak valid."
+
+msgid "Invoice status updated."
+msgstr "Status faktur diperbarui."
+
+msgid "Void invoices cannot be changed to another status."
+msgstr "Faktur batal tidak dapat diubah ke status lain."
+
+msgid "Unpaid"
+msgstr "Belum dibayar"
+
+msgid "Shipped"
+msgstr "Sudah dikirim"
+
+msgid "Unshipped"
+msgstr "Belum dikirim"
+
+msgid "Delivery status"
+msgstr "Status pengiriman"
+
+msgid "Invalid delivery status."
+msgstr "Status pengiriman tidak valid."
+
+msgid "Delivery status updated."
+msgstr "Status pengiriman diperbarui."
+
+msgid "No status changes were made."
+msgstr "Tidak ada perubahan status."

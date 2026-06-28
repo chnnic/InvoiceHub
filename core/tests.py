@@ -43,18 +43,33 @@ class TenantIsolationTests(TestCase):
         response=self.client.get("/zh-hans/invoices/new/")
         self.assertContains(response,"开票日期")
         self.assertContains(response,"PPN 税率")
+
+    def test_company_can_hide_ppn_and_force_tax_to_zero(self):
+        self.a.show_ppn = False
+        self.a.save(update_fields=["show_ppn"])
+        product = Product.objects.get(company=self.a, name="A Product")
+        self.client.force_login(self.ua)
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        response = self.client.post(reverse("invoice_create"), data)
+        self.assertEqual(response.status_code, 302)
+        invoice = Invoice.objects.get(company=self.a)
+        self.assertEqual(invoice.tax_rate, 0)
+        self.assertEqual(invoice.tax, 0)
+        detail = self.client.get(reverse("invoice_detail", args=[invoice.pk]))
+        self.assertNotContains(detail, "PPN 12")
+        self.assertNotContains(detail, "PPN 0")
     def test_invoice_numbers_increment_from_company_rule(self):
         self.a.invoice_prefix="ID-"; self.a.invoice_number_digits=3; self.a.next_invoice_number=7; self.a.save()
         product = Product.objects.get(company=self.a, name="A Product")
         self.client.force_login(self.ua)
-        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product_id":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-0-save_as_product":"on","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-0-save_as_product":"on","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
         self.assertEqual(self.client.post(reverse("invoice_create"),data).status_code,302)
         self.assertEqual(self.client.post(reverse("invoice_create"),data).status_code,302)
         self.assertEqual(list(Invoice.objects.filter(company=self.a).order_by("id").values_list("number",flat=True)),["ID-007","ID-008"])
         self.assertEqual(Product.objects.filter(company=self.a,name="Service",price=100).count(),1)
         self.a.refresh_from_db(); self.assertEqual(self.a.next_invoice_number,9)
         product.refresh_from_db()
-        self.assertEqual(product.stock_quantity, -2)
+        self.assertEqual(product.stock_quantity, 0)
     def test_invoice_creation_rejects_empty_line_items(self):
         self.client.force_login(self.ua)
         data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-description":"","items-0-quantity":"1","items-0-unit_price":"","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
@@ -222,7 +237,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.13")
+        self.assertEqual(VERSION, "1.0.19")
 
     def test_update_container_page_shows_manual_ssh_command(self):
         superuser = User.objects.create_superuser("root5", "root5@example.com", "oldpass123")
@@ -301,7 +316,7 @@ class TenantIsolationTests(TestCase):
     def test_payment_updates_invoice_status_automatically(self):
         self.client.force_login(self.ua)
         product = Product.objects.get(company=self.a, name="A Product")
-        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product_id":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
         self.client.post(reverse("invoice_create"),data)
         invoice=Invoice.objects.get(company=self.a)
         self.assertEqual(invoice.status,"draft")
@@ -310,3 +325,106 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(invoice.status,"paid")
         product.refresh_from_db()
         self.assertEqual(product.stock_quantity, 0)
+
+    def test_invoice_detail_can_fill_balance_and_change_status(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"),data)
+        invoice=Invoice.objects.get(company=self.a)
+        response = self.client.get(reverse("invoice_detail", args=[invoice.pk]))
+        self.assertContains(response, "Fill balance")
+        self.assertContains(response, reverse("invoice_status_update", args=[invoice.pk]))
+        response = self.client.post(reverse("invoice_status_update", args=[invoice.pk]), {"status": "sent", "delivery_status": "shipped"})
+        self.assertRedirects(response, reverse("invoice_detail", args=[invoice.pk]), fetch_redirect_response=False)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "sent")
+        self.assertEqual(invoice.delivery_status, "shipped")
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, -1)
+
+        response = self.client.get(reverse("invoices"), {"delivery_status": "shipped"})
+        self.assertContains(response, invoice.number)
+        response = self.client.get(reverse("invoices"), {"delivery_status": "unshipped"})
+        self.assertNotContains(response, invoice.number)
+
+        response = self.client.post(reverse("invoice_status_update", args=[invoice.pk]), {"status": "sent", "delivery_status": "unshipped"})
+        self.assertRedirects(response, reverse("invoice_detail", args=[invoice.pk]), fetch_redirect_response=False)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 0)
+        invoice.refresh_from_db()
+        self.assertFalse(invoice.inventory_applied)
+
+    def test_invoice_edit_rolls_back_and_reapplies_stock(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"2","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"), data)
+        invoice = Invoice.objects.get(company=self.a)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 0)
+        self.client.post(reverse("invoice_status_update", args=[invoice.pk]), {"status": "sent", "delivery_status": "shipped"})
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, -2)
+        invoice.refresh_from_db()
+        edit_data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"1","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-id":str(invoice.items.first().pk),"items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_edit", args=[invoice.pk]), edit_data)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, -1)
+
+    def test_invoice_void_restores_stock(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"2","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"), data)
+        invoice = Invoice.objects.get(company=self.a)
+        self.client.post(reverse("invoice_status_update", args=[invoice.pk]), {"status": "sent", "delivery_status": "shipped"})
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, -2)
+        self.client.post(reverse("invoice_void", args=[invoice.pk]))
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 0)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, "void")
+        self.assertEqual(invoice.delivery_status, "unshipped")
+        self.assertFalse(invoice.inventory_applied)
+
+    def test_invoice_delete_restores_stock(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"2","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"), data)
+        invoice = Invoice.objects.get(company=self.a)
+        self.client.post(reverse("invoice_status_update", args=[invoice.pk]), {"status": "sent", "delivery_status": "shipped"})
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, -2)
+        self.client.post(reverse("invoice_delete", args=[invoice.pk]))
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 0)
+        self.assertFalse(Invoice.objects.filter(pk=invoice.pk).exists())
+
+    def test_invoice_list_supports_filters_and_export(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"), data)
+        response = self.client.get(reverse("invoices"), {"status": "draft"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Status breakdown")
+        self.assertContains(response, "Unpaid")
+        self.assertContains(response, "Shipped")
+        response = self.client.get(reverse("invoices_csv"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Number")
+        self.assertContains(response, "Delivery status")
+
+    def test_invoice_pdf_download_generates_pdf(self):
+        self.client.force_login(self.ua)
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"PDF test","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        self.client.post(reverse("invoice_create"), data)
+        invoice = Invoice.objects.get(company=self.a)
+        response = self.client.get(reverse("invoice_pdf", args=[invoice.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response.content.startswith(b"%PDF"))

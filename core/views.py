@@ -1,9 +1,11 @@
+import csv
 from datetime import date
 from decimal import Decimal
 import os
 import secrets
 import shlex
 import shutil
+from io import StringIO
 from django.contrib.auth import login
 from django.contrib.auth.models import User
 from django.contrib import messages
@@ -19,6 +21,179 @@ from .decorators import tenant_required, superuser_required
 from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet, SystemSettingForm, AdminPasswordResetForm, FirstLoginPasswordChangeForm, SystemUserForm
 from .models import Company, Customer, Product, Invoice, Payment, Membership, InventoryTransaction, SystemSetting, UserProfile
 from .pdf import build_invoice_pdf
+
+INVOICE_FILTER_STATUS = {"draft", "sent", "partial", "paid", "overdue", "void"}
+INVOICE_FILTER_DELIVERY_STATUS = {"unshipped", "shipped"}
+
+def _invoice_filter_params(request):
+    quick = request.GET.get("quick", "").strip()
+    status = request.GET.get("status", "").strip()
+    delivery_status = request.GET.get("delivery_status", "").strip()
+    customer = request.GET.get("customer", "").strip()
+    month = request.GET.get("month", "").strip()
+    query = request.GET.get("q", "").strip()
+    if status not in INVOICE_FILTER_STATUS:
+        status = ""
+    if delivery_status not in INVOICE_FILTER_DELIVERY_STATUS:
+        delivery_status = ""
+    if quick not in {"unpaid"}:
+        quick = ""
+    return {
+        "quick": quick,
+        "status": status,
+        "delivery_status": delivery_status,
+        "customer": customer,
+        "month": month,
+        "q": query,
+    }
+
+def _filtered_invoices(company, params):
+    invoices = Invoice.objects.filter(company=company).select_related("customer").prefetch_related("items", "payments")
+    status = params.get("status")
+    delivery_status = params.get("delivery_status")
+    customer = params.get("customer")
+    month = params.get("month")
+    query = params.get("q")
+    quick = params.get("quick")
+    if status:
+        invoices = invoices.filter(status=status)
+    if quick == "unpaid":
+        invoices = invoices.exclude(status__in=[Invoice.Status.PAID, Invoice.Status.VOID, Invoice.Status.DRAFT])
+    if delivery_status:
+        invoices = invoices.filter(delivery_status=delivery_status)
+    if customer and customer.isdigit():
+        invoices = invoices.filter(customer_id=customer)
+    if month:
+        try:
+            year, month_num = month.split("-", 1)
+            invoices = invoices.filter(issue_date__year=int(year), issue_date__month=int(month_num))
+        except Exception:
+            pass
+    if query:
+        invoices = invoices.filter(number__icontains=query)
+    if quick == "unpaid":
+        invoices = [invoice for invoice in invoices if invoice.balance > 0]
+    return invoices
+
+def _invoice_summary(invoices):
+    totals = {}
+    customer_rows = {}
+    month_rows = {}
+    invoice_list = list(invoices)
+    for invoice in invoice_list:
+        totals.setdefault(invoice.status, 0)
+        totals[invoice.status] += 1
+        customer_rows.setdefault(invoice.customer.name, Decimal("0"))
+        customer_rows[invoice.customer.name] += invoice.total
+        month_key = invoice.issue_date.strftime("%Y-%m")
+        month_rows.setdefault(month_key, Decimal("0"))
+        month_rows[month_key] += invoice.total
+    return {
+        "status_counts": totals,
+        "status_rows": [(status, label, totals.get(status, 0)) for status, label in Invoice.Status.choices],
+        "customer_totals": sorted(customer_rows.items(), key=lambda item: item[1], reverse=True)[:8],
+        "month_totals": sorted(month_rows.items(), key=lambda item: item[0], reverse=True)[:12],
+        "invoice_count": len(invoice_list),
+        "invoice_total": sum((invoice.total for invoice in invoice_list), Decimal("0")),
+    }
+
+def _sync_invoice_inventory(invoice, cleaned_forms, company, user, number, previous_items=None):
+    desired = {}
+    save_candidates = []
+    if cleaned_forms is None:
+        for item in invoice.items.select_related("product").all():
+            if item.product_id:
+                desired[item.product_id] = desired.get(item.product_id, Decimal("0")) + item.quantity
+    else:
+        for item_form in cleaned_forms:
+            data = item_form.cleaned_data
+            if not data or data.get("DELETE"):
+                continue
+            product = data.get("product") or data.get("product_id")
+            quantity = data.get("quantity") or Decimal("0")
+            if product and quantity:
+                desired[product.pk] = desired.get(product.pk, Decimal("0")) + quantity
+            if data.get("save_as_product") and data.get("description") and data.get("unit_price") is not None:
+                save_candidates.append((data["description"].strip(), data["unit_price"]))
+
+    existing = {}
+    source_items = previous_items if previous_items is not None else invoice.items.select_related("product").all()
+    for item in source_items:
+        if item.product_id:
+            existing[item.product_id] = existing.get(item.product_id, Decimal("0")) + item.quantity
+
+    product_ids = set(existing) | set(desired)
+    stock_warnings = []
+    for product_id in product_ids:
+        product = Product.objects.select_for_update().get(pk=product_id, company=company)
+        previous = existing.get(product_id, Decimal("0"))
+        current = desired.get(product_id, Decimal("0"))
+        delta = current - previous
+        if delta == 0:
+            continue
+        before = product.stock_quantity
+        product.stock_quantity = before - delta
+        product.save(update_fields=["stock_quantity"])
+        action_note = _("Adjusted by invoice %(number)s") % {"number": number}
+        if delta > 0:
+            action_note = _("Issued by invoice %(number)s") % {"number": number}
+        elif delta < 0:
+            action_note = _("Restored by invoice %(number)s") % {"number": number}
+        InventoryTransaction.objects.create(
+            company=company,
+            product=product,
+            kind="out" if delta > 0 else "in",
+            quantity_change=product.stock_quantity - before,
+            stock_after=product.stock_quantity,
+            note=action_note,
+            created_by=user,
+        )
+        if product.stock_quantity < 0:
+            stock_warnings.append(_("Product %(name)s is now negative. Please replenish it soon.") % {"name": product.name})
+
+    for name, unit_price in save_candidates:
+        if name and not Product.objects.filter(company=company, name__iexact=name).exists():
+            Product.objects.create(company=company, name=name, price=unit_price)
+    return stock_warnings
+
+def _restore_invoice_inventory(invoice, company, user, reason, items=None):
+    source_items = items if items is not None else invoice.items.select_related("product").all()
+    for item in source_items:
+        if not item.product_id:
+            continue
+        product = Product.objects.select_for_update().get(pk=item.product_id, company=company)
+        before = product.stock_quantity
+        product.stock_quantity = before + item.quantity
+        product.save(update_fields=["stock_quantity"])
+        InventoryTransaction.objects.create(
+            company=company,
+            product=product,
+            kind="in",
+            quantity_change=item.quantity,
+            stock_after=product.stock_quantity,
+            note=reason,
+            created_by=user,
+        )
+
+def _apply_invoice_inventory_if_shipped(invoice, cleaned_forms, company, user, previous_items=None):
+    if invoice.delivery_status == Invoice.DeliveryStatus.SHIPPED:
+        stock_warnings = _sync_invoice_inventory(
+            invoice,
+            cleaned_forms,
+            company,
+            user,
+            invoice.number,
+            previous_items=previous_items if invoice.inventory_applied else [],
+        )
+        if not invoice.inventory_applied:
+            invoice.inventory_applied = True
+            invoice.save(update_fields=["inventory_applied"])
+        return stock_warnings
+    if invoice.inventory_applied:
+        _restore_invoice_inventory(invoice, company, user, _("Shipment reversed: %(number)s") % {"number": invoice.number}, items=previous_items)
+        invoice.inventory_applied = False
+        invoice.save(update_fields=["inventory_applied"])
+    return []
 
 def switch_language(request):
     """Switch the URL language prefix regardless of the active locale."""
@@ -90,10 +265,50 @@ def product_create(request):
     return render(request,"generic/form.html",{"title":"New product / 新产品 / Produk baru","form":form})
 
 @tenant_required()
-def invoices(request): return render(request,"invoices/list.html",{"invoices":Invoice.objects.filter(company=request.company).select_related("customer")})
+def invoices(request):
+    params = _invoice_filter_params(request)
+    invoice_qs = _filtered_invoices(request.company, params)
+    invoice_list = list(invoice_qs)
+    summary = _invoice_summary(invoice_list)
+    querystring = request.GET.urlencode()
+    return render(request, "invoices/list.html", {
+        "invoices": invoice_list,
+        "filters": params,
+        "status_choices": Invoice.Status.choices,
+        "delivery_status_choices": Invoice.DeliveryStatus.choices,
+        "customers": Customer.objects.filter(company=request.company).order_by("name"),
+        "summary": summary,
+        "querystring": querystring,
+    })
+
+@tenant_required()
+def invoices_csv(request):
+    params = _invoice_filter_params(request)
+    invoices_list = list(_filtered_invoices(request.company, params))
+    buffer = StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["Number", "Customer", "Issue date", "Due date", "Status", "Delivery status", "Subtotal", "Paid", "Balance", "Total"])
+    for invoice in invoices_list:
+        writer.writerow([
+            invoice.number,
+            invoice.customer.name,
+            invoice.issue_date,
+            invoice.due_date,
+            invoice.get_status_display(),
+            invoice.get_delivery_status_display(),
+            invoice.subtotal,
+            invoice.paid,
+            invoice.balance,
+            invoice.total,
+        ])
+    response = HttpResponse(buffer.getvalue(), content_type="text/csv")
+    response["Content-Disposition"] = 'attachment; filename="invoices.csv"'
+    return response
+
 @tenant_required(["owner","admin","finance","sales"])
 def invoice_create(request):
-    form=InvoiceForm(request.POST or None,company=request.company); invoice=Invoice(company=request.company,created_by=request.user)
+    form=InvoiceForm(request.POST or None,company=request.company)
+    invoice=Invoice(company=request.company,created_by=request.user)
     formset=InvoiceItemFormSet(request.POST or None,instance=invoice,form_kwargs={"company":request.company})
     if request.method=="POST" and form.is_valid() and formset.is_valid():
         with transaction.atomic():
@@ -101,51 +316,164 @@ def invoice_create(request):
             number=company.invoice_number_preview()
             while Invoice.objects.filter(company=company,number=number).exists():
                 company.next_invoice_number += 1; number=company.invoice_number_preview()
-            invoice=form.save(commit=False); invoice.company=company; invoice.created_by=request.user; invoice.number=number; invoice.save(); formset.instance=invoice; formset.save()
-            stock_warnings = []
-            for item_form in formset.forms:
-                data=item_form.cleaned_data
-                if not data or data.get("DELETE"):
-                    continue
-                product = data.get("product_id")
-                quantity = data.get("quantity")
-                if product and quantity:
-                    locked_product = Product.objects.select_for_update().get(pk=product.pk, company=company)
-                    before = locked_product.stock_quantity
-                    locked_product.stock_quantity = before - quantity
-                    locked_product.save(update_fields=["stock_quantity"])
-                    InventoryTransaction.objects.create(
-                        company=company,
-                        product=locked_product,
-                        kind="out",
-                        quantity_change=locked_product.stock_quantity - before,
-                        stock_after=locked_product.stock_quantity,
-                        note=_("Issued by invoice %(number)s") % {"number": number},
-                        created_by=request.user,
-                    )
-                    if locked_product.stock_quantity < 0:
-                        stock_warnings.append(_("Product %(name)s is now negative. Please replenish it soon.") % {"name": locked_product.name})
-                if data.get("save_as_product") and data.get("description") and data.get("unit_price") is not None:
-                    name=data["description"].strip()
-                    if not Product.objects.filter(company=company,name__iexact=name).exists(): Product.objects.create(company=company,name=name,price=data["unit_price"])
+            invoice=form.save(commit=False)
+            invoice.company=company
+            invoice.created_by=request.user
+            invoice.number=number
+            invoice.save()
+            formset.instance=invoice
+            formset.save()
+            stock_warnings = _apply_invoice_inventory_if_shipped(invoice, formset.forms, company, request.user, previous_items=[])
             company.next_invoice_number += 1; company.save(update_fields=["next_invoice_number"])
+            invoice.recalculate_status(preferred_status=form.cleaned_data["status"])
+            invoice.save(update_fields=["status"])
             for warning in stock_warnings:
                 messages.warning(request, warning)
         return redirect("invoice_detail",pk=invoice.pk)
     products=Product.objects.filter(company=request.company,active=True).order_by("name")
-    return render(request,"invoices/form.html",{"form":form,"formset":formset,"products":products,"next_number":request.company.invoice_number_preview()})
+    return render(request,"invoices/form.html",{"form":form,"formset":formset,"products":products,"next_number":request.company.invoice_number_preview(),"editing":False,"page_title":_("New invoice")})
+
+@tenant_required(["owner","admin","finance","sales"])
+def invoice_edit(request, pk):
+    invoice = get_object_or_404(Invoice.objects.prefetch_related("items", "payments"), pk=pk, company=request.company)
+    if invoice.status == Invoice.Status.VOID:
+        messages.warning(request, _("Void invoices cannot be edited."))
+        return redirect("invoice_detail", pk=pk)
+    previous_items = list(invoice.items.select_related("product").all())
+    form=InvoiceForm(request.POST or None, instance=invoice, company=request.company)
+    formset=InvoiceItemFormSet(request.POST or None, instance=invoice, form_kwargs={"company":request.company})
+    if request.method=="POST" and form.is_valid() and formset.is_valid():
+        with transaction.atomic():
+            company=Company.objects.select_for_update().get(pk=request.company.pk)
+            invoice=Invoice.objects.select_for_update().get(pk=pk, company=request.company)
+            previous_items = list(invoice.items.select_related("product").all())
+            saved=form.save(commit=False)
+            saved.company=company
+            saved.created_by=invoice.created_by
+            saved.number=invoice.number
+            saved.save()
+            requested_status = form.cleaned_data["status"]
+            if requested_status == Invoice.Status.VOID:
+                if invoice.inventory_applied:
+                    _restore_invoice_inventory(saved, company, request.user, _("Invoice voided: %(number)s") % {"number": saved.number}, items=previous_items)
+                saved.status = Invoice.Status.VOID
+                saved.inventory_applied = False
+                saved.delivery_status = Invoice.DeliveryStatus.UNSHIPPED
+                saved.save(update_fields=["status", "inventory_applied", "delivery_status"])
+                messages.success(request, _("Invoice voided."))
+            else:
+                formset.instance=saved
+                formset.save()
+                saved.inventory_applied = invoice.inventory_applied
+                stock_warnings = _apply_invoice_inventory_if_shipped(saved, formset.forms, company, request.user, previous_items=previous_items)
+                saved.recalculate_status(preferred_status=requested_status)
+                saved.save(update_fields=["status"])
+                for warning in stock_warnings:
+                    messages.warning(request, warning)
+            messages.success(request, _("Invoice updated."))
+        return redirect("invoice_detail", pk=pk)
+    products=Product.objects.filter(company=request.company,active=True).order_by("name")
+    return render(request,"invoices/form.html",{"form":form,"formset":formset,"products":products,"invoice":invoice,"editing":True,"page_title":_("Edit invoice")})
 @tenant_required()
 def invoice_detail(request,pk):
     invoice=get_object_or_404(Invoice.objects.prefetch_related("items","payments"),pk=pk,company=request.company)
-    return render(request,"invoices/detail.html",{"invoice":invoice,"payment_form":PaymentForm()})
+    can_manage_invoice = request.user.is_superuser or (getattr(request, "membership", None) and request.membership.role in {"owner", "admin", "finance"})
+    return render(request,"invoices/detail.html",{"invoice":invoice,"payment_form":PaymentForm(),"can_manage_invoice": can_manage_invoice,"status_choices": Invoice.Status.choices,"delivery_status_choices": Invoice.DeliveryStatus.choices})
 @tenant_required(["owner","admin","finance"])
 def payment_add(request,pk):
     invoice=get_object_or_404(Invoice,pk=pk,company=request.company); form=PaymentForm(request.POST)
     if form.is_valid():
+        if invoice.status == Invoice.Status.VOID:
+            messages.warning(request, _("Void invoices cannot receive payments."))
+            return redirect("invoice_detail", pk=pk)
         p=form.save(commit=False); p.company=request.company; p.invoice=invoice; p.save()
-        invoice.recalculate_status()
+        invoice.recalculate_status(preferred_status=invoice.status)
         invoice.save(update_fields=["status"])
     return redirect("invoice_detail",pk=pk)
+
+@tenant_required(["owner","admin","finance"])
+def invoice_status_update(request, pk):
+    if request.method != "POST":
+        return redirect("invoice_detail", pk=pk)
+    requested_status = request.POST.get("status", "")
+    requested_delivery_status = request.POST.get("delivery_status", "")
+    valid_statuses = {value for value, _ in Invoice.Status.choices}
+    valid_delivery_statuses = {value for value, _ in Invoice.DeliveryStatus.choices}
+    if requested_status and requested_status not in valid_statuses:
+        messages.warning(request, _("Invalid invoice status."))
+        return redirect("invoice_detail", pk=pk)
+    if requested_delivery_status and requested_delivery_status not in valid_delivery_statuses:
+        messages.warning(request, _("Invalid delivery status."))
+        return redirect("invoice_detail", pk=pk)
+    with transaction.atomic():
+        invoice = get_object_or_404(Invoice.objects.select_for_update().prefetch_related("items", "payments"), pk=pk, company=request.company)
+        changed = False
+        if requested_delivery_status and invoice.delivery_status != requested_delivery_status:
+            previous_delivery_status = invoice.delivery_status
+            invoice.delivery_status = requested_delivery_status
+            invoice.save(update_fields=["delivery_status"])
+            if requested_delivery_status == Invoice.DeliveryStatus.SHIPPED and not invoice.inventory_applied:
+                stock_warnings = _sync_invoice_inventory(invoice, None, request.company, request.user, invoice.number, previous_items=[])
+                invoice.inventory_applied = True
+                invoice.save(update_fields=["inventory_applied"])
+                for warning in stock_warnings:
+                    messages.warning(request, warning)
+            elif previous_delivery_status == Invoice.DeliveryStatus.SHIPPED and invoice.inventory_applied:
+                _restore_invoice_inventory(invoice, request.company, request.user, _("Shipment reversed: %(number)s") % {"number": invoice.number})
+                invoice.inventory_applied = False
+                invoice.save(update_fields=["inventory_applied"])
+            messages.success(request, _("Delivery status updated."))
+            changed = True
+        if not requested_status:
+            return redirect("invoice_detail", pk=pk)
+        if invoice.status == requested_status:
+            return redirect("invoice_detail", pk=pk)
+        if requested_status == Invoice.Status.VOID:
+            if invoice.status != Invoice.Status.VOID:
+                if invoice.inventory_applied:
+                    _restore_invoice_inventory(invoice, request.company, request.user, _("Invoice voided: %(number)s") % {"number": invoice.number})
+            invoice.status = Invoice.Status.VOID
+            invoice.delivery_status = Invoice.DeliveryStatus.UNSHIPPED
+            invoice.inventory_applied = False
+            invoice.save(update_fields=["status", "delivery_status", "inventory_applied"])
+            messages.success(request, _("Invoice voided."))
+            changed = True
+        elif invoice.status == Invoice.Status.VOID:
+            messages.warning(request, _("Void invoices cannot be changed to another status."))
+        else:
+            invoice.status = requested_status
+            invoice.save(update_fields=["status"])
+            messages.success(request, _("Invoice status updated."))
+            changed = True
+        if not changed:
+            messages.info(request, _("No status changes were made."))
+    return redirect("invoice_detail", pk=pk)
+@tenant_required(["owner","admin","finance"])
+def invoice_void(request, pk):
+    if request.method != "POST":
+        return redirect("invoice_detail", pk=pk)
+    with transaction.atomic():
+        invoice = get_object_or_404(Invoice.objects.select_for_update().prefetch_related("items", "payments"), pk=pk, company=request.company)
+        if invoice.status != Invoice.Status.VOID and invoice.inventory_applied:
+            _restore_invoice_inventory(invoice, request.company, request.user, _("Invoice voided: %(number)s") % {"number": invoice.number})
+        invoice.status = Invoice.Status.VOID
+        invoice.delivery_status = Invoice.DeliveryStatus.UNSHIPPED
+        invoice.inventory_applied = False
+        invoice.save(update_fields=["status", "delivery_status", "inventory_applied"])
+    messages.success(request, _("Invoice voided."))
+    return redirect("invoice_detail", pk=pk)
+
+@tenant_required(["owner","admin","finance"])
+def invoice_delete(request, pk):
+    if request.method != "POST":
+        return redirect("invoice_detail", pk=pk)
+    with transaction.atomic():
+        invoice = get_object_or_404(Invoice.objects.select_for_update().prefetch_related("items", "payments"), pk=pk, company=request.company)
+        if invoice.status != Invoice.Status.VOID and invoice.inventory_applied:
+            _restore_invoice_inventory(invoice, request.company, request.user, _("Invoice deleted: %(number)s") % {"number": invoice.number})
+        invoice.delete()
+    messages.success(request, _("Invoice deleted."))
+    return redirect("invoices")
 @tenant_required()
 def invoice_pdf(request,pk):
     invoice=get_object_or_404(Invoice.objects.prefetch_related("items","payments"),pk=pk,company=request.company)

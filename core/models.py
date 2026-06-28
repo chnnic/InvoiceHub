@@ -20,6 +20,7 @@ class Company(models.Model):
     invoice_number_digits = models.PositiveSmallIntegerField(default=5)
     next_invoice_number = models.PositiveBigIntegerField(default=1)
     allow_negative_stock = models.BooleanField(default=False)
+    show_ppn = models.BooleanField(default=True)
     default_tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=12)
     default_dpp_factor = models.DecimalField(max_digits=8, decimal_places=6, default=0.916667)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -117,11 +118,15 @@ class InventoryTransaction(TenantModel):
 class Invoice(TenantModel):
     class Status(models.TextChoices):
         DRAFT="draft", "Draft"; SENT="sent", "Sent"; PARTIAL="partial", "Partial"; PAID="paid", "Paid"; OVERDUE="overdue", "Overdue"; VOID="void", "Void"
+    class DeliveryStatus(models.TextChoices):
+        UNSHIPPED="unshipped", _("Unshipped"); SHIPPED="shipped", _("Shipped")
     number = models.CharField(max_length=40)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="invoices")
     issue_date = models.DateField()
     due_date = models.DateField()
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT)
+    delivery_status = models.CharField(max_length=12, choices=DeliveryStatus.choices, default=DeliveryStatus.UNSHIPPED)
+    inventory_applied = models.BooleanField(default=False)
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=12)
     dpp_factor = models.DecimalField(max_digits=8, decimal_places=6, default=0.916667)
     discount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
@@ -134,26 +139,35 @@ class Invoice(TenantModel):
     @property
     def subtotal(self): return sum((x.quantity*x.unit_price for x in self.items.all()), Decimal("0"))
     @property
-    def tax(self): return max(self.subtotal-self.discount, Decimal("0"))*self.dpp_factor*self.tax_rate/Decimal("100")
+    def tax(self):
+        if self.company_id and not self.company.show_ppn:
+            return Decimal("0")
+        return max(self.subtotal-self.discount, Decimal("0"))*self.dpp_factor*self.tax_rate/Decimal("100")
     @property
     def total(self): return self.subtotal-self.discount+self.tax
     @property
     def paid(self): return self.payments.aggregate(v=Sum("amount"))["v"] or Decimal("0")
     @property
     def balance(self): return self.total-self.paid
-    def recalculate_status(self):
-        if self.status == self.Status.VOID:
+    def recalculate_status(self, preferred_status=None):
+        if preferred_status == self.Status.VOID or self.status == self.Status.VOID:
+            self.status = self.Status.VOID
             return self.status
         if self.balance <= 0:
             self.status = self.Status.PAID
         elif self.paid > 0:
             self.status = self.Status.PARTIAL
-        elif self.status != self.Status.DRAFT and self.due_date < date.today():
+        elif self.due_date < date.today():
             self.status = self.Status.OVERDUE
+        elif preferred_status == self.Status.DRAFT:
+            self.status = self.Status.DRAFT
+        else:
+            self.status = self.Status.SENT
         return self.status
 
 class InvoiceItem(models.Model):
     invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name="invoice_items")
     description = models.CharField(max_length=250)
     quantity = models.DecimalField(max_digits=12, decimal_places=2, default=1)
     unit_price = models.DecimalField(max_digits=18, decimal_places=2)

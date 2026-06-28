@@ -23,32 +23,56 @@ class ProductForm(StyledForm, forms.ModelForm):
         labels={"name":_("Product name"),"sku":"SKU","unit":_("Unit"),"price":_("Price"),"track_inventory":_("Track inventory"),"low_stock_threshold":_("Low-stock threshold"),"active":_("Active")}
 class InvoiceForm(StyledForm, forms.ModelForm):
     class Meta:
-        model=Invoice; fields=("customer","issue_date","due_date","status","tax_rate","dpp_factor","discount","notes")
+        model=Invoice; fields=("customer","issue_date","due_date","status","delivery_status","tax_rate","dpp_factor","discount","notes")
         widgets={"issue_date":forms.DateInput(attrs={"type":"date"}),"due_date":forms.DateInput(attrs={"type":"date"})}
-        labels={"customer":_("Customer"),"issue_date":_("Issue date"),"due_date":_("Due date"),"status":_("Status"),"tax_rate":_("PPN rate (%)"),"dpp_factor":_("DPP factor"),"discount":_("Discount"),"notes":_("Notes")}
+        labels={"customer":_("Customer"),"issue_date":_("Issue date"),"due_date":_("Due date"),"status":_("Status"),"delivery_status":_("Delivery status"),"tax_rate":_("PPN rate (%)"),"dpp_factor":_("DPP factor"),"discount":_("Discount"),"notes":_("Notes")}
     def __init__(self, *args, company=None, **kwargs):
+        self.company = company
         super().__init__(*args, **kwargs)
         self.fields["customer"].queryset=Customer.objects.filter(company=company)
-        self.fields["status"].choices=[("draft",_("Draft")),("sent",_("Sent")),("partial",_("Partial")),("paid",_("Paid")),("overdue",_("Overdue")),("void",_("Void"))]
+        if company and not company.show_ppn:
+            self.fields["tax_rate"].initial = 0
+            self.fields["tax_rate"].widget = forms.HiddenInput()
+            self.fields["dpp_factor"].widget = forms.HiddenInput()
+        choices=[("draft",_("Draft")),("sent",_("Sent")),("partial",_("Partial")),("paid",_("Paid")),("overdue",_("Overdue"))]
+        if self.instance and self.instance.pk:
+            choices.append(("void", _("Void")))
+        self.fields["status"].choices=choices
+    def clean(self):
+        data = super().clean()
+        if self.company and not self.company.show_ppn:
+            data["tax_rate"] = 0
+            data["dpp_factor"] = 0
+        return data
 class InvoiceItemForm(StyledForm, forms.ModelForm):
     product_id = forms.ModelChoiceField(queryset=Product.objects.none(), required=False, widget=forms.HiddenInput())
     save_as_product=forms.BooleanField(required=False,label=_("Save to product catalog"))
     class Meta:
-        model=InvoiceItem; fields=("description","quantity","unit_price")
-        widgets={"description":forms.TextInput(attrs={"class":"input product-combobox","autocomplete":"off"}),"quantity":forms.NumberInput(attrs={"class":"input","step":"0.01"}),"unit_price":forms.NumberInput(attrs={"class":"input unit-price","step":"0.01"})}
+        model=InvoiceItem; fields=("product","description","quantity","unit_price")
+        widgets={"product":forms.HiddenInput(),"description":forms.TextInput(attrs={"class":"input product-combobox","autocomplete":"off"}),"quantity":forms.NumberInput(attrs={"class":"input","step":"0.01"}),"unit_price":forms.NumberInput(attrs={"class":"input unit-price","step":"0.01"})}
     def __init__(self, *args, company=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields["product"].queryset = Product.objects.filter(company=company, active=True).order_by("name")
         self.fields["product_id"].queryset = Product.objects.filter(company=company, active=True).order_by("name")
-    def clean_quantity(self):
-        value = self.cleaned_data["quantity"]
-        if value <= 0:
+        if self.instance and self.instance.pk and self.instance.product_id:
+            self.initial.setdefault("product", self.instance.product_id)
+            self.initial.setdefault("product_id", self.instance.product_id)
+    def clean(self):
+        data = super().clean()
+        product = data.get("product") or data.get("product_id")
+        description = (data.get("description") or "").strip()
+        quantity = data.get("quantity")
+        unit_price = data.get("unit_price")
+        if not product and not description:
+            return data
+        if product:
+            data["product"] = product
+            data["product_id"] = product
+        if quantity is None or quantity <= 0:
             raise forms.ValidationError(_("Quantity must be greater than zero."))
-        return value
-    def clean_unit_price(self):
-        value = self.cleaned_data["unit_price"]
-        if value <= 0:
+        if unit_price is None or unit_price <= 0:
             raise forms.ValidationError(_("Unit price must be greater than zero."))
-        return value
+        return data
 
 class InvoiceItemFormSetBase(BaseInlineFormSet):
     def clean(self):
@@ -61,7 +85,7 @@ class InvoiceItemFormSetBase(BaseInlineFormSet):
                 continue
             if form.cleaned_data.get("DELETE"):
                 continue
-            if form.cleaned_data.get("description"):
+            if form.cleaned_data.get("description") or form.cleaned_data.get("product") or form.cleaned_data.get("product_id"):
                 has_item = True
                 break
         if not has_item:
@@ -78,8 +102,8 @@ class MemberForm(StyledForm, forms.Form):
 class CompanySettingsForm(StyledForm, forms.ModelForm):
     class Meta:
         model=Company
-        fields=("logo","name","country","currency","npwp","address","email","phone","website","bank_details","invoice_prefix","invoice_number_digits","next_invoice_number","default_tax_rate","default_dpp_factor","allow_negative_stock")
-        labels={"allow_negative_stock":_("Allow negative stock (overselling)")}
+        fields=("logo","name","country","currency","npwp","address","email","phone","website","bank_details","invoice_prefix","invoice_number_digits","next_invoice_number","show_ppn","default_tax_rate","default_dpp_factor","allow_negative_stock")
+        labels={"allow_negative_stock":_("Allow negative stock (overselling)"),"show_ppn":_("Show PPN on invoices")}
     def clean_invoice_number_digits(self):
         value=self.cleaned_data["invoice_number_digits"]
         if not 1 <= value <= 12: raise forms.ValidationError("Use 1–12 digits.")
