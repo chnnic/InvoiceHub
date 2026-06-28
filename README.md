@@ -97,8 +97,18 @@ bash scripts/update_from_github.sh
 1. `git pull origin main`
 2. `docker compose up -d --build`
 
+也可以直接用统一入口：
+
+```bash
+bash scripts/ih.sh update
+bash scripts/ih.sh status
+bash scripts/ih.sh doctor
+bash scripts/ih.sh logs --service web
+```
+
 ## 脚本说明
 
+- `scripts/ih.sh`：统一入口（install/update/deploy/status/doctor/logs/backup/restore/preview）
 - `scripts/lib.sh`：公共脚本函数（compose 兼容、端口检测、`.env` 写入）
 - `scripts/run_local_preview.sh`：本地预览
 - `scripts/install_vps.sh`：VPS 一键安装

@@ -11,6 +11,11 @@ if ! command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
+if [ ! -d .git ]; then
+  echo "This directory is not a git repository: $ROOT_DIR" >&2
+  exit 1
+fi
+
 git pull origin main
 git rev-parse --short HEAD > .github-version
 compose_up up -d --build
