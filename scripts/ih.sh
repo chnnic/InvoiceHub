@@ -30,6 +30,9 @@ case "$ACTION" in
   restore)
     exec bash "$ROOT_DIR/scripts/restore.sh" "$@"
     ;;
+  bump-version|version)
+    exec bash "$ROOT_DIR/scripts/bump_version.sh" "$@"
+    ;;
   preview)
     exec bash "$ROOT_DIR/scripts/run_local_preview.sh" "$@"
     ;;
@@ -49,6 +52,7 @@ Commands:
   logs      Tail container logs
   backup    Backup database and media
   restore   Restore from backup files
+  version   Bump patch version or set a specific version
   preview   Start local preview
 EOF
     ;;

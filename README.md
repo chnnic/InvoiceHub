@@ -106,6 +106,22 @@ bash scripts/ih.sh doctor
 bash scripts/ih.sh logs --service web
 ```
 
+## 版本管理
+
+每次功能或脚本更新后，都建议同步更新版本号。
+
+自动升级一个 patch 版本：
+
+```bash
+bash scripts/ih.sh version
+```
+
+指定版本号：
+
+```bash
+bash scripts/ih.sh version 1.0.4
+```
+
 ## 脚本说明
 
 - `scripts/ih.sh`：统一入口（install/update/deploy/status/doctor/logs/backup/restore/preview）

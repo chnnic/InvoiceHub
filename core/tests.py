@@ -137,7 +137,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.2")
+        self.assertEqual(VERSION, "1.0.3")
 
     def test_superuser_can_open_user_management_without_seeing_tenant_content(self):
         superuser = User.objects.create_superuser("root", "root@example.com", "oldpass123")
