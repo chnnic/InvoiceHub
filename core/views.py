@@ -54,8 +54,9 @@ def dashboard(request):
     paid_expr=Coalesce(Sum("payments__amount"),Decimal("0"),output_field=DecimalField())
     monthly=(Payment.objects.filter(company=request.company,date__year=date.today().year).annotate(month=TruncMonth("date")).values("month").annotate(total=Sum("amount")).order_by("month"))
     customers=(Customer.objects.filter(company=request.company).annotate(sales=Coalesce(Sum("invoices__payments__amount"),Decimal("0"),output_field=DecimalField())).order_by("-sales")[:8])
-    low_stock_count=Product.objects.filter(company=request.company,track_inventory=True,stock_quantity__lte=F("low_stock_threshold"),active=True).count()
-    return render(request,"dashboard.html",{"invoice_count":invoices.count(),"received":Payment.objects.filter(company=request.company).aggregate(v=Sum("amount"))["v"] or 0,"outstanding":sum((i.balance for i in invoices.prefetch_related("items","payments")),Decimal("0")),"monthly":monthly,"top_customers":customers,"recent":invoices[:8],"low_stock_count":low_stock_count})
+    low_stock_products=Product.objects.filter(company=request.company,track_inventory=True,stock_quantity__lte=F("low_stock_threshold"),active=True).order_by("stock_quantity","name")
+    negative_stock_products=low_stock_products.filter(stock_quantity__lt=0)
+    return render(request,"dashboard.html",{"invoice_count":invoices.count(),"received":Payment.objects.filter(company=request.company).aggregate(v=Sum("amount"))["v"] or 0,"outstanding":sum((i.balance for i in invoices.prefetch_related("items","payments")),Decimal("0")),"monthly":monthly,"top_customers":customers,"recent":invoices[:8],"low_stock_count":low_stock_products.count(),"low_stock_products":low_stock_products[:6],"negative_stock_products":negative_stock_products[:6]})
 
 @tenant_required()
 def ensure_password_change(request):
@@ -280,11 +281,14 @@ def inventory_change(request,pk):
             product=Product.objects.select_for_update().get(pk=pk,company=request.company)
             before=product.stock_quantity; quantity=form.cleaned_data["quantity"]; kind=form.cleaned_data["kind"]
             after=quantity if kind=="adjust" else before+quantity if kind=="in" else before-quantity
-            if after < 0 and not request.company.allow_negative_stock: form.add_error("quantity",_("Stock cannot become negative unless overselling is enabled in company settings."))
-            else:
-                product.stock_quantity=after; product.save(update_fields=["stock_quantity"])
-                InventoryTransaction.objects.create(company=request.company,product=product,kind=kind,quantity_change=after-before,stock_after=after,note=form.cleaned_data["note"],created_by=request.user)
-                return redirect("inventory_detail",pk=pk)
+            warning_message = None
+            if after < 0:
+                warning_message = _("Stock is now negative. Please replenish inventory soon.")
+            product.stock_quantity=after; product.save(update_fields=["stock_quantity"])
+            InventoryTransaction.objects.create(company=request.company,product=product,kind=kind,quantity_change=after-before,stock_after=after,note=form.cleaned_data["note"],created_by=request.user)
+            if warning_message:
+                messages.warning(request, warning_message)
+            return redirect("inventory_detail",pk=pk)
     return render(request,"inventory/change.html",{"product":product,"form":form})
 
 @tenant_required(["owner","admin","finance"])

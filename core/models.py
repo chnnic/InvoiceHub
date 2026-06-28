@@ -83,6 +83,24 @@ class Product(TenantModel):
     def __str__(self): return self.name
     @property
     def low_stock(self): return self.track_inventory and self.stock_quantity <= self.low_stock_threshold
+    @property
+    def stock_warning_level(self):
+        if not self.track_inventory:
+            return "none"
+        if self.stock_quantity < 0:
+            return "critical"
+        if self.stock_quantity <= self.low_stock_threshold:
+            return "warning"
+        return "ok"
+    @property
+    def stock_warning_text(self):
+        if not self.track_inventory:
+            return ""
+        if self.stock_quantity < 0:
+            return _("Negative stock: please replenish immediately.")
+        if self.stock_quantity <= self.low_stock_threshold:
+            return _("Low stock: please replenish soon.")
+        return ""
 
 class InventoryTransaction(TenantModel):
     class Kind(models.TextChoices):

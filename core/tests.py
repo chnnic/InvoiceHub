@@ -78,7 +78,7 @@ class TenantIsolationTests(TestCase):
         product=Product.objects.get(company=self.a,name="A Product")
         self.client.force_login(self.ua)
         response=self.client.post(reverse("inventory_change",args=[product.pk]),{"kind":"out","quantity":"1","note":""})
-        self.assertEqual(response.status_code,200); product.refresh_from_db(); self.assertEqual(product.stock_quantity,0)
+        self.assertEqual(response.status_code,302); product.refresh_from_db(); self.assertEqual(product.stock_quantity,-1)
     def test_overselling_allows_negative_stock_when_enabled(self):
         product=Product.objects.get(company=self.a,name="A Product")
         self.a.allow_negative_stock=True; self.a.save(update_fields=["allow_negative_stock"])
@@ -86,6 +86,14 @@ class TenantIsolationTests(TestCase):
         response=self.client.post(reverse("inventory_change",args=[product.pk]),{"kind":"out","quantity":"3","note":"Oversold"})
         self.assertEqual(response.status_code,302); product.refresh_from_db(); self.assertEqual(product.stock_quantity,-3)
         row=InventoryTransaction.objects.get(product=product); self.assertEqual(row.quantity_change,-3); self.assertEqual(row.stock_after,-3)
+    def test_dashboard_shows_negative_stock_warning(self):
+        product=Product.objects.get(company=self.a,name="A Product")
+        product.stock_quantity = -2
+        product.save(update_fields=["stock_quantity"])
+        self.client.force_login(self.ua)
+        response=self.client.get(reverse("dashboard"))
+        self.assertContains(response, "Urgent replenishment")
+        self.assertContains(response, "Negative stock")
     def test_batch_stock_in_updates_existing_and_creates_new_product(self):
         existing=Product.objects.get(company=self.a,name="A Product")
         self.client.force_login(self.ua)
