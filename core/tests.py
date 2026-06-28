@@ -106,7 +106,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Inventory alerts")
         self.assertContains(response, "A Product")
-        self.assertContains(response, "Batch replenish")
+        self.assertContains(response, "Quick replenish")
     def test_batch_stock_in_updates_existing_and_creates_new_product(self):
         existing=Product.objects.get(company=self.a,name="A Product")
         self.client.force_login(self.ua)
@@ -120,6 +120,15 @@ class TenantIsolationTests(TestCase):
         response=self.client.get(reverse("inventory_batch_in"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "This can also create new products.")
+    def test_inventory_replenish_page_prefills_alert_products(self):
+        product = Product.objects.get(company=self.a, name="A Product")
+        product.stock_quantity = -2
+        product.save(update_fields=["stock_quantity"])
+        self.client.force_login(self.ua)
+        response = self.client.get(reverse("inventory_replenish"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Quick replenish")
+        self.assertContains(response, "A Product")
     def test_system_setting_default_allows_company_signup(self):
         setting = SystemSetting.get_solo()
         self.assertTrue(setting.allow_company_signup)

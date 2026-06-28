@@ -289,6 +289,38 @@ def inventory(request):
     products=Product.objects.filter(company=request.company,active=True).order_by("name")
     return render(request,"inventory/list.html",{"products":products})
 
+def _batch_stock_in_rows(request, formset):
+    with transaction.atomic():
+        for row in formset.cleaned_data:
+            if not row or row.get("DELETE"):
+                continue
+            product=row.get("product")
+            if product:
+                product=Product.objects.select_for_update().get(pk=product.pk,company=request.company)
+            else:
+                name=row["new_product_name"].strip()
+                product=Product.objects.select_for_update().filter(company=request.company,name__iexact=name).first()
+                if not product:
+                    product=Product.objects.create(company=request.company,name=name,sku=row.get("sku","").strip(),unit=row.get("unit") or "pcs",price=row.get("price") or 0,low_stock_threshold=row.get("low_stock_threshold") or 0,track_inventory=True)
+            product.stock_quantity += row["quantity"]; product.save(update_fields=["stock_quantity"])
+            InventoryTransaction.objects.create(company=request.company,product=product,kind="in",quantity_change=row["quantity"],stock_after=product.stock_quantity,note=row.get("note") or _("Batch stock in"),created_by=request.user)
+
+def _replenish_initial_rows(products):
+    rows = []
+    for product in products:
+        suggested = product.low_stock_threshold - product.stock_quantity
+        if suggested <= 0:
+            suggested = Decimal("1")
+        rows.append({
+            "product": product,
+            "unit": product.unit,
+            "price": product.price,
+            "low_stock_threshold": product.low_stock_threshold,
+            "quantity": suggested,
+            "note": _("Replenishment"),
+        })
+    return rows
+
 @tenant_required()
 def inventory_alerts(request):
     products = Product.objects.filter(
@@ -301,6 +333,30 @@ def inventory_alerts(request):
         "products": products,
         "warning_count": products.count(),
         "critical_count": products.filter(stock_quantity__lt=0).count(),
+    })
+
+@tenant_required(["owner","admin","finance"])
+def inventory_replenish(request):
+    products = Product.objects.filter(
+        company=request.company,
+        active=True,
+        track_inventory=True,
+        stock_quantity__lte=F("low_stock_threshold"),
+    ).order_by("stock_quantity", "name")
+    formset = BatchStockInFormSet(
+        request.POST or None,
+        form_kwargs={"company": request.company},
+        initial=_replenish_initial_rows(products),
+    )
+    if request.method == "POST" and formset.is_valid():
+        _batch_stock_in_rows(request, formset)
+        messages.success(request, _("Replenishment saved."))
+        return redirect("inventory_alerts")
+    return render(request, "inventory/batch_in.html", {
+        "formset": formset,
+        "page_title": _("Quick replenish"),
+        "page_intro": _("Low-stock products are prefilled. Adjust the quantities, then save."),
+        "submit_label": _("Save replenishment"),
     })
 
 @tenant_required()
@@ -332,18 +388,7 @@ def inventory_change(request,pk):
 def inventory_batch_in(request):
     formset=BatchStockInFormSet(request.POST or None,form_kwargs={"company":request.company})
     if request.method=="POST" and formset.is_valid():
-        with transaction.atomic():
-            for row in formset.cleaned_data:
-                if not row or row.get("DELETE"): continue
-                product=row.get("product")
-                if product:
-                    product=Product.objects.select_for_update().get(pk=product.pk,company=request.company)
-                else:
-                    name=row["new_product_name"].strip()
-                    product=Product.objects.select_for_update().filter(company=request.company,name__iexact=name).first()
-                    if not product:
-                        product=Product.objects.create(company=request.company,name=name,sku=row.get("sku","").strip(),unit=row.get("unit") or "pcs",price=row.get("price") or 0,low_stock_threshold=row.get("low_stock_threshold") or 0,track_inventory=True)
-                product.stock_quantity += row["quantity"]; product.save(update_fields=["stock_quantity"])
-                InventoryTransaction.objects.create(company=request.company,product=product,kind="in",quantity_change=row["quantity"],stock_after=product.stock_quantity,note=row.get("note") or _("Batch stock in"),created_by=request.user)
+        _batch_stock_in_rows(request, formset)
+        messages.success(request, _("Batch stock in saved."))
         return redirect("inventory")
-    return render(request,"inventory/batch_in.html",{"formset":formset})
+    return render(request,"inventory/batch_in.html",{"formset":formset,"page_title":_("Batch stock in"),"page_intro":_("Select an existing product or enter a new product on each row. This can also create new products."),"submit_label":_("Save batch stock in")})
