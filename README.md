@@ -2,7 +2,7 @@
 
 InvoiceHub 是一个面向中小企业的多租户发票、客户、产品与库存管理系统。项目默认适配印尼业务场景，支持中文、English、Bahasa Indonesia，可通过 Docker 快速部署到自己的 VPS。
 
-当前版本：`1.0.28`
+当前版本：`1.0.31`
 
 ## 适合谁使用
 
@@ -315,7 +315,7 @@ bash scripts/ih.sh version
 指定版本：
 
 ```bash
-bash scripts/ih.sh version 1.0.28
+bash scripts/ih.sh version 1.0.31
 ```
 
 开发规则：每次功能或脚本变更都应同步更新版本号。

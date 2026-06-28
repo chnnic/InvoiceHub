@@ -18,8 +18,10 @@
       <small>{% trans "Commercial invoice" %}</small>
       <h1>{% trans "Invoice" %}</h1>
       <strong>{{ invoice.number }}</strong>
-      <span class="badge {{ invoice.status }}">{{ invoice.get_status_display }}</span>
-      <span class="badge {{ invoice.delivery_status }}">{{ invoice.get_delivery_status_display }}</span>
+      <div class="invoice-status-row">
+        <span class="badge {{ invoice.status }}">{{ invoice.get_status_display }}</span>
+        <span class="badge {{ invoice.delivery_status }}">{{ invoice.get_delivery_status_display }}</span>
+      </div>
     </div>
   </header>
 
