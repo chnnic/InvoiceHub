@@ -13,6 +13,21 @@ def password_change_required(view):
         return view(request, *args, **kwargs)
     return wrapped
 
+
+def superuser_password_change_required(view):
+    @login_required
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not request.user.is_superuser:
+            raise PermissionDenied
+        profile = getattr(request.user, "profile", None)
+        if profile and profile.must_change_password:
+            url_name = getattr(getattr(request, "resolver_match", None), "url_name", "")
+            if url_name not in {"superuser_password", "logout"}:
+                return redirect("superuser_password")
+        return view(request, *args, **kwargs)
+    return wrapped
+
 def tenant_required(roles=None):
     def deco(view):
         @password_change_required
@@ -27,9 +42,8 @@ def tenant_required(roles=None):
     return deco
 
 def superuser_required(view):
-    @login_required
+    @superuser_password_change_required
+    @wraps(view)
     def wrapped(request, *args, **kwargs):
-        if not request.user.is_superuser:
-            raise PermissionDenied
         return view(request, *args, **kwargs)
     return wrapped

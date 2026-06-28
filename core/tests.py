@@ -127,6 +127,15 @@ class TenantIsolationTests(TestCase):
         self.assertTrue(superuser.check_password("newpass12345"))
         self.assertTrue(superuser.profile.must_change_password)
 
+    def test_superuser_forced_password_change_redirects_other_system_pages(self):
+        superuser = User.objects.create_superuser("admin4", "admin4@example.com", "oldpass123")
+        UserProfile.objects.create(user=superuser, must_change_password=True)
+        self.client.force_login(superuser)
+        response = self.client.get(reverse("system_settings"))
+        self.assertRedirects(response, reverse("superuser_password"), fetch_redirect_response=False)
+        self.assertEqual(self.client.get(reverse("superuser_password")).status_code, 200)
+        self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
+
     def test_version_constant_is_present(self):
         self.assertEqual(VERSION, "1.0.2")
 

@@ -173,12 +173,13 @@ compose_up up -d --build
 sleep 8
 compose_up logs --no-color web --tail=80 || true
 
+FINAL_PASSWORD="${SUPERUSER_PASSWORD}"
+if grep -q '^SUPERUSER_PASSWORD=$' .env 2>/dev/null; then
+  FINAL_PASSWORD="(auto-generated in container logs)"
+fi
+
 echo
 echo "Installed."
 echo "Open: http://<your-vps-ip>:${APP_PORT}"
 echo "Superuser: ${SUPERUSER_USERNAME}"
-if [ -n "${AUTO_PASSWORD_NOTE}" ]; then
-  echo "Password: ${SUPERUSER_PASSWORD} ${AUTO_PASSWORD_NOTE}"
-else
-  echo "Password: ${SUPERUSER_PASSWORD}"
-fi
+echo "Password: ${FINAL_PASSWORD} ${AUTO_PASSWORD_NOTE}"
