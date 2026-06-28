@@ -1,13 +1,72 @@
 {% extends 'base.html' %}{% load i18n %}
 {% block content %}
-<div class="pagehead"><div><h1>{% trans "Update InvoiceHub from GitHub" %}</h1></div></div>
-<article class="panel formpanel">
-  {% if updated %}
-    <p>{% trans "InvoiceHub was updated from GitHub and containers were rebuilt." %}</p>
-  {% else %}
-    <p>{% trans "This action pulls the latest InvoiceHub code from GitHub and rebuilds the Docker stack." %}</p>
+<div class="pagehead">
+  <div>
+    <h1>{% trans "Update InvoiceHub from GitHub" %}</h1>
+    <p>{% trans "Pull the latest code, rebuild containers, and keep your data volumes intact." %}</p>
+  </div>
+  <span class="badge {% if updated %}paid{% else %}partial{% endif %}">{% if updated %}{% trans "Completed" %}{% else %}{% trans "Attention" %}{% endif %}</span>
+</div>
+
+<article class="panel update-shell">
+  <div class="update-summary">
+    <div class="update-hero">
+      {% if updated %}
+        <strong>{% trans "Update finished successfully." %}</strong>
+        <p>{% trans "InvoiceHub has pulled the latest GitHub version and rebuilt the Docker stack." %}</p>
+      {% elif compose_missing %}
+        <strong>{% trans "Docker Compose is missing." %}</strong>
+        <p>{% trans "Install docker compose plugin or docker-compose, then run the update again." %}</p>
+      {% elif already_up_to_date %}
+        <strong>{% trans "InvoiceHub is already up to date." %}</strong>
+        <p>{% trans "GitHub already matches the current local code." %}</p>
+      {% else %}
+        <strong>{% trans "Ready to update InvoiceHub." %}</strong>
+        <p>{% trans "This action pulls the latest InvoiceHub code from GitHub and rebuilds the Docker stack." %}</p>
+      {% endif %}
+    </div>
+    <div class="update-grid">
+      <div class="update-card">
+        <small>{% trans "Step 1" %}</small>
+        <b>{% trans "Pull latest source" %}</b>
+      </div>
+      <div class="update-card">
+        <small>{% trans "Step 2" %}</small>
+        <b>{% trans "Rebuild containers" %}</b>
+      </div>
+      <div class="update-card">
+        <small>{% trans "Step 3" %}</small>
+        <b>{% trans "Keep data volume" %}</b>
+      </div>
+    </div>
+  </div>
+
+  {% if stdout or stderr %}
+  <div class="loggrid">
+    {% if stdout %}
+    <section class="logbox">
+      <div class="loghead"><strong>{% trans "Output" %}</strong><span>{% trans "Normal progress messages" %}</span></div>
+      <pre>{{ stdout }}</pre>
+    </section>
+    {% endif %}
+    {% if stderr %}
+    <section class="logbox error">
+      <div class="loghead"><strong>{% trans "Problems" %}</strong><span>{% trans "Warnings or errors to fix" %}</span></div>
+      <pre>{{ stderr }}</pre>
+    </section>
+    {% endif %}
+  </div>
   {% endif %}
-  {% if stdout %}<pre style="white-space:pre-wrap">{{ stdout }}</pre>{% endif %}
-  {% if stderr %}<pre style="white-space:pre-wrap;color:#b83228">{{ stderr }}</pre>{% endif %}
+
+  <div class="hintgrid">
+    <div class="hintbox">
+      <strong>{% trans "Safe update flow" %}</strong>
+      <p>{% trans "The updater pulls from GitHub first, then rebuilds the app container while keeping your database and media volumes." %}</p>
+    </div>
+    <div class="hintbox">
+      <strong>{% trans "If update fails" %}</strong>
+      <p>{% trans "Check Docker Compose availability, network access, and the Git repository state on the VPS." %}</p>
+    </div>
+  </div>
 </article>
 {% endblock %}

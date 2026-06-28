@@ -227,8 +227,38 @@ def update_container(request):
         import subprocess
         script = Path(__file__).resolve().parent.parent / "scripts" / "update_from_github.sh"
         result = subprocess.run(["bash", str(script)], cwd=Path(__file__).resolve().parent.parent, capture_output=True, text=True, timeout=900)
-        return render(request, "update_container.html", {"updated": result.returncode == 0, "stdout": result.stdout, "stderr": result.stderr, "script": str(script)})
+        stdout = result.stdout or ""
+        stderr = result.stderr or ""
+        compose_missing = "Docker Compose is required" in stderr
+        already_up_to_date = "Already up to date." in stdout
+        return render(request, "update_container.html", {
+            "updated": result.returncode == 0,
+            "stdout": stdout,
+            "stderr": stderr,
+            "script": str(script),
+            "compose_missing": compose_missing,
+            "already_up_to_date": already_up_to_date,
+        })
     return render(request, "update_container.html", {"updated": False})
+
+@superuser_required
+def ui_mockup(request):
+    mock_user_count = User.objects.count()
+    mock_companies = Company.objects.count()
+    mock_products = Product.objects.count()
+    mock_invoices = Invoice.objects.count()
+    recent_titles = [
+        ("Update InvoiceHub from GitHub", _("System deployment and version sync")),
+        ("User management", _("Account safety and permission control")),
+        ("System settings", _("Global controls, access and version info")),
+    ]
+    return render(request, "ui_mockup.html", {
+        "mock_user_count": mock_user_count,
+        "mock_companies": mock_companies,
+        "mock_products": mock_products,
+        "mock_invoices": mock_invoices,
+        "recent_titles": recent_titles,
+    })
 
 @tenant_required()
 def inventory(request):

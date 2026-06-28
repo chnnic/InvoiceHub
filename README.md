@@ -33,11 +33,7 @@
 适合开发调试。
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py migrate --noinput
-DATABASE_URL=sqlite:///work/preview.sqlite3 python3 manage.py runserver 0.0.0.0:18081
+bash scripts/run_local_preview.sh
 ```
 
 打开：
@@ -101,6 +97,19 @@ bash scripts/update_from_github.sh
 1. `git pull origin main`
 2. `docker compose up -d --build`
 
+## 脚本说明
+
+- `scripts/lib.sh`：公共脚本函数（compose 兼容、端口检测、`.env` 写入）
+- `scripts/run_local_preview.sh`：本地预览
+- `scripts/install_vps.sh`：VPS 一键安装
+- `scripts/update_from_github.sh`：从 GitHub 更新
+- `scripts/deploy_vps.sh`：VPS 重新部署
+- `scripts/status.sh`：查看版本与容器状态
+- `scripts/backup.sh`：备份数据库和 media
+- `scripts/restore.sh`：恢复备份
+- `scripts/doctor.sh`：环境和部署检查
+- `scripts/logs.sh`：快速查看容器日志
+
 ## 主要功能
 
 - 公司独立数据隔离
@@ -120,8 +129,16 @@ bash scripts/update_from_github.sh
 - `templates/`：网页模板
 - `scripts/`：安装、更新脚本
 - `docker-compose.yml`：本地 / 标准 Docker 启动
+- `scripts/lib.sh`：脚本公共函数
+- `scripts/run_local_preview.sh`：本地预览脚本
 - `scripts/install_vps.sh`：VPS 一键安装
 - `scripts/update_from_github.sh`：从 GitHub 更新
+- `scripts/deploy_vps.sh`：VPS 重新部署
+- `scripts/status.sh`：状态查看
+- `scripts/backup.sh`：备份脚本
+- `scripts/restore.sh`：恢复脚本
+- `scripts/doctor.sh`：环境检查脚本
+- `scripts/logs.sh`：日志查看脚本
 
 ## 说明
 

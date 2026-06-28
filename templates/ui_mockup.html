@@ -1,0 +1,72 @@
+{% extends 'base.html' %}{% load i18n %}
+{% block content %}
+<div class="pagehead">
+  <div>
+    <h1>{% trans "UI mockup" %}</h1>
+    <p>{% trans "A local preview page for dashboard styling and layout iteration." %}</p>
+  </div>
+  <span class="badge paid">{% trans "Local preview" %}</span>
+</div>
+
+<div class="mockup-layout">
+  <section class="mockup-left">
+    <article class="panel mock-banner">
+      <div>
+        <small>{% trans "Control center" %}</small>
+        <h2>{% trans "Admin surfaces in one view" %}</h2>
+        <p>{% trans "Use this page to judge spacing, card hierarchy, and overall visual rhythm before pushing to production." %}</p>
+      </div>
+      <div class="mock-actions">
+        <a class="primary" href="{% url 'system_settings' %}">{% trans "Open system settings" %}</a>
+        <a class="secondary" href="{% url 'system_users' %}">{% trans "Open user management" %}</a>
+      </div>
+    </article>
+
+    <div class="cards mock-kpis">
+      <article><small>{% trans "Users" %}</small><strong>{{ mock_user_count }}</strong></article>
+      <article><small>{% trans "Companies" %}</small><strong>{{ mock_companies }}</strong></article>
+      <article><small>{% trans "Products" %}</small><strong>{{ mock_products }}</strong></article>
+    </div>
+
+    <article class="panel">
+      <h2>{% trans "Recent admin surfaces" %}</h2>
+      <div class="mock-list">
+        {% for title, sub in recent_titles %}
+        <div class="mock-list-item">
+          <div>
+            <strong>{{ title }}</strong>
+            <span>{{ sub }}</span>
+          </div>
+          <a href="{% if forloop.first %}{% url 'update_container' %}{% elif forloop.counter == 2 %}{% url 'system_users' %}{% else %}{% url 'system_settings' %}{% endif %}">{% trans "Open" %}</a>
+        </div>
+        {% endfor %}
+      </div>
+    </article>
+  </section>
+
+  <aside class="mock-right">
+    <article class="panel mock-phone">
+      <div class="mock-phone-head">
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      </div>
+      <div class="mock-phone-body">
+        <div class="mock-phone-card accent">
+          <small>{% trans "Status" %}</small>
+          <strong>{% trans "InvoiceHub stable" %}</strong>
+          <p>{% trans "Fresh updates, user control, and a cleaner admin flow." %}</p>
+        </div>
+        <div class="mock-phone-card">
+          <small>{% trans "Version" %}</small>
+          <strong>{{ local_version }}</strong>
+          <p>{% trans "Local build" %} · {{ github_version }}</p>
+        </div>
+        <div class="mock-phone-card">
+          <small>{% trans "Invoices" %}</small>
+          <strong>{{ mock_invoices }}</strong>
+          <p>{% trans "Tenant content stays hidden from system admin tools." %}</p>
+        </div>
+      </div>
+    </article>
+  </aside>
+</div>
+{% endblock %}

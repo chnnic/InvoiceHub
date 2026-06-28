@@ -1,42 +1,99 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/lib.sh"
+
 REPO_URL="${REPO_URL:-https://github.com/chnnic/InvoiceHub.git}"
 BRANCH="${BRANCH:-main}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/invoicehub}"
 APP_PORT="${APP_PORT:-18081}"
+SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"
+SUPERUSER_EMAIL="${SUPERUSER_EMAIL:-admin@example.com}"
+SUPERUSER_PASSWORD="${SUPERUSER_PASSWORD:-}"
+NON_INTERACTIVE="${NON_INTERACTIVE:-0}"
 
-find_free_port() {
-  python3 - <<'PY'
-import os
-import socket
-
-start = int(os.environ.get("APP_PORT", "18081"))
-for port in [start, *range(start + 1, start + 1000)]:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        try:
-            s.bind(("0.0.0.0", port))
-        except OSError:
-            continue
-        print(port)
-        raise SystemExit(0)
-raise SystemExit("no free port found")
-PY
-}
-
-compose_up() {
-  if docker compose version >/dev/null 2>&1; then
-    docker compose "$@"
-    return 0
-  fi
-  if command -v docker-compose >/dev/null 2>&1; then
-    docker-compose "$@"
-    return 0
-  fi
-  echo "Docker Compose is required but was not found." >&2
-  return 1
-}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --repo)
+      REPO_URL="$2"
+      shift 2
+      ;;
+    --repo=*)
+      REPO_URL="${1#*=}"
+      shift
+      ;;
+    --branch)
+      BRANCH="$2"
+      shift 2
+      ;;
+    --branch=*)
+      BRANCH="${1#*=}"
+      shift
+      ;;
+    --dir|--install-dir)
+      INSTALL_DIR="$2"
+      shift 2
+      ;;
+    --dir=*|--install-dir=*)
+      INSTALL_DIR="${1#*=}"
+      shift
+      ;;
+    --port)
+      APP_PORT="$2"
+      shift 2
+      ;;
+    --port=*)
+      APP_PORT="${1#*=}"
+      shift
+      ;;
+    --username)
+      SUPERUSER_USERNAME="$2"
+      shift 2
+      ;;
+    --username=*)
+      SUPERUSER_USERNAME="${1#*=}"
+      shift
+      ;;
+    --email)
+      SUPERUSER_EMAIL="$2"
+      shift 2
+      ;;
+    --email=*)
+      SUPERUSER_EMAIL="${1#*=}"
+      shift
+      ;;
+    --password)
+      SUPERUSER_PASSWORD="$2"
+      shift 2
+      ;;
+    --password=*)
+      SUPERUSER_PASSWORD="${1#*=}"
+      shift
+      ;;
+    --non-interactive|--yes)
+      NON_INTERACTIVE=1
+      shift
+      ;;
+    -h|--help)
+      cat <<'EOF'
+Usage: bash scripts/install_vps.sh [options]
+  --repo URL          GitHub repo URL
+  --branch NAME       Git branch to install
+  --dir PATH          Install directory
+  --port PORT         App port
+  --username NAME     Superuser username
+  --email EMAIL       Superuser email
+  --password PASS     Superuser password
+  --non-interactive    Skip prompts and use provided/default values
+EOF
+      exit 0
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      exit 1
+      ;;
+  esac
+done
 
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required."
@@ -48,10 +105,11 @@ if ! command -v git >/dev/null 2>&1; then
   exit 1
 fi
 
-read -r -p "Install directory [${INSTALL_DIR}]: " INPUT_INSTALL_DIR
-INSTALL_DIR="${INPUT_INSTALL_DIR:-$INSTALL_DIR}"
-
 mkdir -p "$(dirname "$INSTALL_DIR")"
+if [ "$NON_INTERACTIVE" = "0" ]; then
+  prompt_input "Install directory" "$INSTALL_DIR" INSTALL_DIR
+fi
+
 if [ ! -d "$INSTALL_DIR/.git" ]; then
   git clone --branch "$BRANCH" --depth 1 "$REPO_URL" "$INSTALL_DIR"
 else
@@ -60,16 +118,14 @@ fi
 
 cd "$INSTALL_DIR"
 
-read -r -p "VPS port [${APP_PORT}]: " INPUT_APP_PORT
-APP_PORT="${INPUT_APP_PORT:-$APP_PORT}"
-APP_PORT="$(find_free_port)"
+if [ "$NON_INTERACTIVE" = "0" ]; then
+  prompt_input "VPS port" "$APP_PORT" APP_PORT
+  prompt_input "Superuser username" "$SUPERUSER_USERNAME" SUPERUSER_USERNAME
+  prompt_input "Superuser email" "$SUPERUSER_EMAIL" SUPERUSER_EMAIL
+  prompt_secret "Superuser password (blank = auto-generate)" SUPERUSER_PASSWORD
+fi
 
-read -r -p "Superuser username [admin]: " SUPERUSER_USERNAME
-SUPERUSER_USERNAME="${SUPERUSER_USERNAME:-admin}"
-read -r -p "Superuser email [admin@example.com]: " SUPERUSER_EMAIL
-SUPERUSER_EMAIL="${SUPERUSER_EMAIL:-admin@example.com}"
-read -r -s -p "Superuser password (blank = auto-generate): " SUPERUSER_PASSWORD
-echo
+APP_PORT="$(find_free_port "$APP_PORT")"
 
 if [ -z "${SUPERUSER_PASSWORD}" ]; then
   SUPERUSER_PASSWORD="$(python3 - <<'PY'
@@ -86,34 +142,30 @@ export APP_PORT SUPERUSER_USERNAME SUPERUSER_EMAIL SUPERUSER_PASSWORD
 GITHUB_VERSION="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
 export GITHUB_VERSION
 
-python3 - <<'PY'
-from pathlib import Path
-import os
+SECRET_KEY="$(python3 - <<'PY'
 import secrets
-
-env_path = Path(".env")
-example_path = Path(".env.example")
-data = {}
-
-if example_path.exists():
-    for line in example_path.read_text().splitlines():
-        if "=" in line and not line.startswith("#"):
-            k, v = line.split("=", 1)
-            data[k] = v
-
-data["SECRET_KEY"] = secrets.token_urlsafe(48)
-data["POSTGRES_PASSWORD"] = secrets.token_urlsafe(24)
-data["DATABASE_URL"] = f"postgresql://invoicehub:{data['POSTGRES_PASSWORD']}@db:5432/invoicehub"
-data["DEBUG"] = "0"
-data["ALLOWED_HOSTS"] = "*"
-data["CSRF_TRUSTED_ORIGINS"] = ""
-data["APP_PORT"] = os.environ["APP_PORT"]
-data["SUPERUSER_USERNAME"] = os.environ["SUPERUSER_USERNAME"]
-data["SUPERUSER_EMAIL"] = os.environ["SUPERUSER_EMAIL"]
-data["SUPERUSER_PASSWORD"] = os.environ["SUPERUSER_PASSWORD"]
-
-env_path.write_text("\n".join(f"{k}={v}" for k, v in data.items()) + "\n")
+print(secrets.token_urlsafe(48))
 PY
+)"
+POSTGRES_PASSWORD="$(python3 - <<'PY'
+import secrets
+print(secrets.token_urlsafe(24))
+PY
+)"
+
+write_env_file .env \
+  "SECRET_KEY=${SECRET_KEY}" \
+  "DEBUG=0" \
+  "ALLOWED_HOSTS=*" \
+  "CSRF_TRUSTED_ORIGINS=" \
+  "POSTGRES_DB=invoicehub" \
+  "POSTGRES_USER=invoicehub" \
+  "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" \
+  "DATABASE_URL=postgresql://invoicehub:${POSTGRES_PASSWORD}@db:5432/invoicehub" \
+  "APP_PORT=${APP_PORT}" \
+  "SUPERUSER_USERNAME=${SUPERUSER_USERNAME}" \
+  "SUPERUSER_EMAIL=${SUPERUSER_EMAIL}" \
+  "SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD}"
 
 printf '%s\n' "${GITHUB_VERSION}" > .github-version
 

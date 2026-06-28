@@ -24,6 +24,7 @@ urlpatterns = [
     path("system/users/", views.system_users, name="system_users"),
     path("system/password/", views.superuser_password, name="superuser_password"),
     path("system/update-container/", views.update_container, name="update_container"),
+    path("system/mockup/", views.ui_mockup, name="ui_mockup"),
     path("inventory/", views.inventory, name="inventory"),
     path("inventory/<int:pk>/", views.inventory_detail, name="inventory_detail"),
     path("inventory/<int:pk>/change/", views.inventory_change, name="inventory_change"),
