@@ -6,6 +6,19 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
+compose_up() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+    return 0
+  fi
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+    return 0
+  fi
+  echo "Docker Compose is required but was not found." >&2
+  return 1
+}
+
 read -r -p "VPS port [18081]: " APP_PORT
 APP_PORT="${APP_PORT:-18081}"
 find_free_port() {
@@ -55,5 +68,5 @@ data['SUPERUSER_EMAIL'] = os.environ['SUPERUSER_EMAIL']
 path.write_text('\n'.join(f'{k}={v}' for k,v in data.items()) + '\n')
 PY
 
-docker compose up -d --build
+compose_up up -d --build
 echo "Deployed to http://<your-vps-ip>:${APP_PORT}"

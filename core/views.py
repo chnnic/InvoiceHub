@@ -1,9 +1,11 @@
 from datetime import date
 from decimal import Decimal
+import secrets
 from django.contrib.auth import login
 from django.contrib.auth.models import User
+from django.contrib import messages
 from django.db import transaction
-from django.db.models import DecimalField, F, Sum
+from django.db.models import Count, DecimalField, F, Sum
 from django.db.models.functions import Coalesce, TruncMonth
 from django.http import HttpResponse
 from django.conf import settings
@@ -11,7 +13,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import translation
 from django.utils.translation import gettext as _
 from .decorators import tenant_required, superuser_required
-from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet, SystemSettingForm, AdminPasswordResetForm, FirstLoginPasswordChangeForm
+from .forms import SignupForm, CustomerForm, ProductForm, InvoiceForm, InvoiceItemFormSet, PaymentForm, MemberForm, CompanySettingsForm, InventoryChangeForm, BatchStockInFormSet, SystemSettingForm, AdminPasswordResetForm, FirstLoginPasswordChangeForm, SystemUserForm
 from .models import Company, Customer, Product, Invoice, Payment, Membership, InventoryTransaction, SystemSetting, UserProfile
 from .pdf import build_invoice_pdf
 
@@ -144,7 +146,67 @@ def system_settings(request):
     if request.method == "POST" and form.is_valid():
         form.save()
         return redirect("system_settings")
-    return render(request, "system_settings.html", {"form": form})
+    return render(request, "system_settings.html", {
+        "form": form,
+        "user_count": User.objects.count(),
+        "active_user_count": User.objects.filter(is_active=True).count(),
+    })
+
+@superuser_required
+def system_users(request):
+    users = (
+        User.objects.annotate(company_count=Count("memberships", distinct=True))
+        .prefetch_related("memberships__company")
+        .order_by("username")
+    )
+    selected = None
+    edit_form = None
+    if request.method == "POST":
+        action = request.POST.get("action", "edit")
+        user_id = request.POST.get("user_id")
+        user = get_object_or_404(User, pk=user_id)
+        if action == "toggle_active":
+            user.is_active = not user.is_active
+            user.save(update_fields=["is_active"])
+            messages.success(request, _("User status updated."))
+            return redirect("system_users")
+        if action == "reset_password":
+            temp_password = secrets.token_urlsafe(12)
+            user.set_password(temp_password)
+            user.save(update_fields=["password"])
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.must_change_password = True
+            profile.save(update_fields=["must_change_password"])
+            messages.success(request, _("Password reset for %(user)s. Temporary password: %(password)s") % {"user": user.username, "password": temp_password})
+            return redirect("system_users")
+        edit_form = SystemUserForm(request.POST, instance=user)
+        if edit_form.is_valid():
+            obj = edit_form.save()
+            p1 = edit_form.cleaned_data.get("new_password1")
+            if p1:
+                obj.set_password(p1)
+                obj.save(update_fields=["password"])
+                profile, _ = UserProfile.objects.get_or_create(user=obj)
+                profile.must_change_password = edit_form.cleaned_data["require_change_on_next_login"]
+                profile.save(update_fields=["must_change_password"])
+            messages.success(request, _("User updated."))
+            return redirect("system_users")
+        selected = user
+    else:
+        target = request.GET.get("user")
+        if target:
+            selected = get_object_or_404(User, pk=target)
+            edit_form = SystemUserForm(instance=selected)
+    if selected and edit_form is None:
+        edit_form = SystemUserForm(instance=selected)
+    return render(request, "system_users.html", {
+        "users": users,
+        "user_count": users.count(),
+        "active_user_count": users.filter(is_active=True).count(),
+        "inactive_user_count": users.filter(is_active=False).count(),
+        "edit_form": edit_form,
+        "selected_user": selected,
+    })
 
 @superuser_required
 def superuser_password(request):

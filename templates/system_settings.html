@@ -8,7 +8,9 @@
   </div>
   <p><strong>{% trans "Local version" %}:</strong> {{ local_version }}</p>
   <p><strong>{% trans "GitHub version" %}:</strong> {{ github_version }}</p>
+  <p><strong>{% trans "Total users" %}:</strong> {{ user_count }} · <strong>{% trans "Active" %}:</strong> {{ active_user_count }}</p>
   <form method="post">{% csrf_token %}{{ form.as_p }}<button class="primary">{% trans "Save system settings" %}</button></form>
+  <p style="margin-top:18px"><a class="secondary" href="{% url 'system_users' %}">{% trans "Open user management" %}</a></p>
   <form method="post" action="{% url 'update_container' %}" style="margin-top:18px">{% csrf_token %}<button class="secondary" type="submit">{% trans "Update InvoiceHub from GitHub" %}</button></form>
   <p style="margin-top:18px"><a class="secondary" href="{% url 'superuser_password' %}">{% trans "Change admin password" %}</a></p>
 </article>

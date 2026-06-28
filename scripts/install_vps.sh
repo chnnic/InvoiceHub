@@ -25,6 +25,19 @@ raise SystemExit("no free port found")
 PY
 }
 
+compose_up() {
+  if docker compose version >/dev/null 2>&1; then
+    docker compose "$@"
+    return 0
+  fi
+  if command -v docker-compose >/dev/null 2>&1; then
+    docker-compose "$@"
+    return 0
+  fi
+  echo "Docker Compose is required but was not found." >&2
+  return 1
+}
+
 if ! command -v docker >/dev/null 2>&1; then
   echo "Docker is required."
   exit 1
@@ -104,9 +117,9 @@ PY
 
 printf '%s\n' "${GITHUB_VERSION}" > .github-version
 
-docker compose up -d --build
+compose_up up -d --build
 sleep 8
-docker compose logs --no-color web --tail=80 || true
+compose_up logs --no-color web --tail=80 || true
 
 echo
 echo "Installed."

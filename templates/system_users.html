@@ -1,0 +1,61 @@
+{% extends 'base.html' %}{% load i18n %}
+{% block content %}
+<div class="pagehead"><div><h1>{% trans "User management" %}</h1><p>{% trans "Manage accounts without exposing company documents or customer data" %}</p></div></div>
+<div class="grid">
+  <article class="panel">
+    <p><strong>{% trans "Total users" %}:</strong> {{ user_count }}</p>
+    <p><strong>{% trans "Active users" %}:</strong> {{ active_user_count }}</p>
+    <p><strong>{% trans "Inactive users" %}:</strong> {{ inactive_user_count }}</p>
+    <table>
+      <tr>
+        <th>{% trans "Username" %}</th>
+        <th>{% trans "Email" %}</th>
+        <th>{% trans "Companies" %}</th>
+        <th>{% trans "Active" %}</th>
+        <th>{% trans "Superuser" %}</th>
+        <th>{% trans "Actions" %}</th>
+      </tr>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.username }}</td>
+        <td>{{ u.email|default:'—' }}</td>
+        <td>{{ u.company_count }}</td>
+        <td>{% if u.is_active %}✓{% else %}—{% endif %}</td>
+        <td>{% if u.is_superuser %}✓{% else %}—{% endif %}</td>
+        <td>
+          <a href="?user={{ u.pk }}">{% trans "Edit" %}</a>
+          <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="user_id" value="{{ u.pk }}">
+            <input type="hidden" name="action" value="toggle_active">
+            <button class="link" type="submit">{% if u.is_active %}{% trans "Disable" %}{% else %}{% trans "Enable" %}{% endif %}</button>
+          </form>
+          <form method="post" style="display:inline">
+            {% csrf_token %}
+            <input type="hidden" name="user_id" value="{{ u.pk }}">
+            <input type="hidden" name="action" value="reset_password">
+            <button class="link" type="submit">{% trans "Reset password" %}</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </article>
+  <article class="panel formpanel">
+    <h2>{% trans "Edit user" %}</h2>
+    {% if selected_user %}
+      <p><strong>{{ selected_user.username }}</strong></p>
+    {% else %}
+      <p>{% trans "Select a user to edit." %}</p>
+    {% endif %}
+    {% if edit_form %}
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="user_id" value="{{ selected_user.pk }}">
+      {{ edit_form.as_p }}
+      <button class="primary">{% trans "Save user" %}</button>
+    </form>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}

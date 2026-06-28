@@ -18,7 +18,7 @@
     <a href="{% url 'products' %}">◇ {% trans "Products" %}</a>
     <a href="{% url 'inventory' %}">▦ {% trans "Inventory" %}</a>
     {% if membership.role == 'owner' or membership.role == 'admin' %}<a href="{% url 'members' %}">♧ {% trans "Team & permissions" %}</a><a href="{% url 'company_settings' %}">⚙ {% trans "Company settings" %}</a>{% endif %}
-    {% if user.is_superuser %}<a href="{% url 'system_settings' %}">★ {% trans "System settings" %}</a><a href="{% url 'superuser_password' %}">🔒 {% trans "Change admin password" %}</a>{% endif %}
+    {% if user.is_superuser %}<a href="{% url 'system_settings' %}">★ {% trans "System settings" %}</a><a href="{% url 'system_users' %}">👥 {% trans "User management" %}</a><a href="{% url 'superuser_password' %}">🔒 {% trans "Change admin password" %}</a>{% endif %}
   </nav>
 </aside>
 {% endif %}

@@ -72,6 +72,30 @@ class AdminPasswordResetForm(StyledForm, forms.Form):
             raise forms.ValidationError(_("The two password fields didn’t match."))
         return data
 
+class SystemUserForm(StyledForm, forms.ModelForm):
+    new_password1 = forms.CharField(widget=forms.PasswordInput, required=False, label=_("New password"))
+    new_password2 = forms.CharField(widget=forms.PasswordInput, required=False, label=_("Confirm password"))
+    require_change_on_next_login = forms.BooleanField(required=False, initial=False, label=_("Force password change on next login"))
+
+    class Meta:
+        model = User
+        fields = ("username", "email", "is_active", "is_staff", "is_superuser")
+        labels = {
+            "username": _("Username"),
+            "email": _("Email"),
+            "is_active": _("Active"),
+            "is_staff": _("Staff access"),
+            "is_superuser": _("Superuser"),
+        }
+
+    def clean(self):
+        data = super().clean()
+        p1 = data.get("new_password1")
+        p2 = data.get("new_password2")
+        if (p1 or p2) and p1 != p2:
+            raise forms.ValidationError(_("The two password fields didn’t match."))
+        return data
+
 class FirstLoginPasswordChangeForm(StyledForm, PasswordChangeForm):
     pass
 

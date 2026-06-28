@@ -21,6 +21,7 @@ urlpatterns = [
     path("members/", views.members, name="members"),
     path("settings/", views.company_settings, name="company_settings"),
     path("system/", views.system_settings, name="system_settings"),
+    path("system/users/", views.system_users, name="system_users"),
     path("system/password/", views.superuser_password, name="superuser_password"),
     path("system/update-container/", views.update_container, name="update_container"),
     path("inventory/", views.inventory, name="inventory"),

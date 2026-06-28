@@ -128,4 +128,62 @@ class TenantIsolationTests(TestCase):
         self.assertTrue(superuser.profile.must_change_password)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.1")
+        self.assertEqual(VERSION, "1.0.2")
+
+    def test_superuser_can_open_user_management_without_seeing_tenant_content(self):
+        superuser = User.objects.create_superuser("root", "root@example.com", "oldpass123")
+        self.client.force_login(superuser)
+        response = self.client.get(reverse("system_users"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "User management")
+        self.assertNotContains(response, "Customer A")
+        self.assertNotContains(response, "B Secret Product")
+
+    def test_superuser_can_update_user_status_and_password(self):
+        superuser = User.objects.create_superuser("root2", "root2@example.com", "oldpass123")
+        target = User.objects.create_user("staff1", "staff1@example.com", "passpass123")
+        self.client.force_login(superuser)
+        response = self.client.post(reverse("system_users"), {
+            "user_id": str(target.pk),
+            "username": "staff-renamed",
+            "email": "new@example.com",
+            "is_active": "",
+            "is_staff": "on",
+            "is_superuser": "",
+            "new_password1": "newpass12345",
+            "new_password2": "newpass12345",
+            "require_change_on_next_login": "on",
+        })
+        self.assertRedirects(response, reverse("system_users"), fetch_redirect_response=False)
+        target.refresh_from_db()
+        self.assertEqual(target.username, "staff-renamed")
+        self.assertEqual(target.email, "new@example.com")
+        self.assertFalse(target.is_active)
+        self.assertTrue(target.is_staff)
+        self.assertTrue(target.check_password("newpass12345"))
+        self.assertTrue(target.profile.must_change_password)
+
+    def test_superuser_can_toggle_user_active_state(self):
+        superuser = User.objects.create_superuser("root3", "root3@example.com", "oldpass123")
+        target = User.objects.create_user("staff2", "staff2@example.com", "passpass123")
+        self.client.force_login(superuser)
+        response = self.client.post(reverse("system_users"), {
+            "user_id": str(target.pk),
+            "action": "toggle_active",
+        })
+        self.assertRedirects(response, reverse("system_users"), fetch_redirect_response=False)
+        target.refresh_from_db()
+        self.assertFalse(target.is_active)
+
+    def test_superuser_can_reset_password_from_user_list(self):
+        superuser = User.objects.create_superuser("root4", "root4@example.com", "oldpass123")
+        target = User.objects.create_user("staff3", "staff3@example.com", "passpass123")
+        self.client.force_login(superuser)
+        response = self.client.post(reverse("system_users"), {
+            "user_id": str(target.pk),
+            "action": "reset_password",
+        })
+        self.assertRedirects(response, reverse("system_users"), fetch_redirect_response=False)
+        target.refresh_from_db()
+        self.assertTrue(target.profile.must_change_password)
+        self.assertFalse(target.check_password("passpass123"))
