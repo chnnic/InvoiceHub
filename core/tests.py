@@ -43,13 +43,16 @@ class TenantIsolationTests(TestCase):
         self.assertContains(response,"PPN 税率")
     def test_invoice_numbers_increment_from_company_rule(self):
         self.a.invoice_prefix="ID-"; self.a.invoice_number_digits=3; self.a.next_invoice_number=7; self.a.save()
+        product = Product.objects.get(company=self.a, name="A Product")
         self.client.force_login(self.ua)
-        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-0-save_as_product":"on","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product_id":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-0-save_as_product":"on","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
         self.assertEqual(self.client.post(reverse("invoice_create"),data).status_code,302)
         self.assertEqual(self.client.post(reverse("invoice_create"),data).status_code,302)
         self.assertEqual(list(Invoice.objects.filter(company=self.a).order_by("id").values_list("number",flat=True)),["ID-007","ID-008"])
         self.assertEqual(Product.objects.filter(company=self.a,name="Service",price=100).count(),1)
         self.a.refresh_from_db(); self.assertEqual(self.a.next_invoice_number,9)
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, -2)
     def test_invoice_creation_rejects_empty_line_items(self):
         self.client.force_login(self.ua)
         data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-description":"","items-0-quantity":"1","items-0-unit_price":"","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
@@ -223,10 +226,13 @@ class TenantIsolationTests(TestCase):
 
     def test_payment_updates_invoice_status_automatically(self):
         self.client.force_login(self.ua)
-        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        product = Product.objects.get(company=self.a, name="A Product")
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"12","dpp_factor":"0.916667","discount":"0","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product_id":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"100","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
         self.client.post(reverse("invoice_create"),data)
         invoice=Invoice.objects.get(company=self.a)
         self.assertEqual(invoice.status,"draft")
         self.client.post(reverse("payment_add",args=[invoice.pk]),{"date":"2026-06-21","amount":"100","method":"cash","reference":"cash-1"})
         invoice.refresh_from_db()
         self.assertEqual(invoice.status,"paid")
+        product.refresh_from_db()
+        self.assertEqual(product.stock_quantity, 0)

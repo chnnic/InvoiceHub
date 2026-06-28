@@ -91,7 +91,7 @@ def invoices(request): return render(request,"invoices/list.html",{"invoices":In
 @tenant_required(["owner","admin","finance","sales"])
 def invoice_create(request):
     form=InvoiceForm(request.POST or None,company=request.company); invoice=Invoice(company=request.company,created_by=request.user)
-    formset=InvoiceItemFormSet(request.POST or None,instance=invoice)
+    formset=InvoiceItemFormSet(request.POST or None,instance=invoice,form_kwargs={"company":request.company})
     if request.method=="POST" and form.is_valid() and formset.is_valid():
         with transaction.atomic():
             company=Company.objects.select_for_update().get(pk=request.company.pk)
@@ -99,12 +99,35 @@ def invoice_create(request):
             while Invoice.objects.filter(company=company,number=number).exists():
                 company.next_invoice_number += 1; number=company.invoice_number_preview()
             invoice=form.save(commit=False); invoice.company=company; invoice.created_by=request.user; invoice.number=number; invoice.save(); formset.instance=invoice; formset.save()
+            stock_warnings = []
             for item_form in formset.forms:
                 data=item_form.cleaned_data
-                if data and not data.get("DELETE") and data.get("save_as_product") and data.get("description") and data.get("unit_price") is not None:
+                if not data or data.get("DELETE"):
+                    continue
+                product = data.get("product_id")
+                quantity = data.get("quantity")
+                if product and quantity:
+                    locked_product = Product.objects.select_for_update().get(pk=product.pk, company=company)
+                    before = locked_product.stock_quantity
+                    locked_product.stock_quantity = before - quantity
+                    locked_product.save(update_fields=["stock_quantity"])
+                    InventoryTransaction.objects.create(
+                        company=company,
+                        product=locked_product,
+                        kind="out",
+                        quantity_change=locked_product.stock_quantity - before,
+                        stock_after=locked_product.stock_quantity,
+                        note=_("Issued by invoice %(number)s") % {"number": number},
+                        created_by=request.user,
+                    )
+                    if locked_product.stock_quantity < 0:
+                        stock_warnings.append(_("Product %(name)s is now negative. Please replenish it soon.") % {"name": locked_product.name})
+                if data.get("save_as_product") and data.get("description") and data.get("unit_price") is not None:
                     name=data["description"].strip()
                     if not Product.objects.filter(company=company,name__iexact=name).exists(): Product.objects.create(company=company,name=name,price=data["unit_price"])
             company.next_invoice_number += 1; company.save(update_fields=["next_invoice_number"])
+            for warning in stock_warnings:
+                messages.warning(request, warning)
         return redirect("invoice_detail",pk=invoice.pk)
     products=Product.objects.filter(company=request.company,active=True).order_by("name")
     return render(request,"invoices/form.html",{"form":form,"formset":formset,"products":products,"next_number":request.company.invoice_number_preview()})

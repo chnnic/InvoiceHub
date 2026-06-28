@@ -31,10 +31,14 @@ class InvoiceForm(StyledForm, forms.ModelForm):
         self.fields["customer"].queryset=Customer.objects.filter(company=company)
         self.fields["status"].choices=[("draft",_("Draft")),("sent",_("Sent")),("partial",_("Partial")),("paid",_("Paid")),("overdue",_("Overdue")),("void",_("Void"))]
 class InvoiceItemForm(StyledForm, forms.ModelForm):
+    product_id = forms.ModelChoiceField(queryset=Product.objects.none(), required=False, widget=forms.HiddenInput())
     save_as_product=forms.BooleanField(required=False,label=_("Save to product catalog"))
     class Meta:
         model=InvoiceItem; fields=("description","quantity","unit_price")
         widgets={"description":forms.TextInput(attrs={"class":"input product-combobox","autocomplete":"off"}),"quantity":forms.NumberInput(attrs={"class":"input","step":"0.01"}),"unit_price":forms.NumberInput(attrs={"class":"input unit-price","step":"0.01"})}
+    def __init__(self, *args, company=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["product_id"].queryset = Product.objects.filter(company=company, active=True).order_by("name")
     def clean_quantity(self):
         value = self.cleaned_data["quantity"]
         if value <= 0:

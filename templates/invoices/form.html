@@ -14,7 +14,7 @@
       <tr><th>{% trans "Product / description" %}</th><th>{% trans "Quantity" %}</th><th>{% trans "Unit price" %}</th><th>{% trans "Save as product" %}</th><th>{% trans "Delete" %}</th></tr>
       {% for f in formset %}
       <tr class="invoice-line">
-        <td class="product-cell">{{ f.id }}<div class="product-picker">{{ f.description }}<button class="product-toggle" type="button" aria-label="{% trans 'Show products' %}">⌄</button><div class="product-menu" hidden>{% for product in products %}<button type="button" class="product-option" data-name="{{ product.name }}" data-price="{{ product.price }}"><span>{{ product.name }}</span><small>{{ product.sku }} · Rp {{ product.price|money }}</small></button>{% empty %}<p>{% trans "No products yet. Create a product first." %}</p>{% endfor %}</div></div>{{ f.description.errors }}</td>
+        <td class="product-cell">{{ f.id }}{{ f.product_id }}<div class="product-picker">{{ f.description }}<button class="product-toggle" type="button" aria-label="{% trans 'Show products' %}">⌄</button><div class="product-menu" hidden>{% for product in products %}<button type="button" class="product-option" data-id="{{ product.pk }}" data-name="{{ product.name }}" data-price="{{ product.price }}"><span>{{ product.name }}</span><small>{{ product.sku }} · Rp {{ product.price|money }}</small></button>{% empty %}<p>{% trans "No products yet. Create a product first." %}</p>{% endfor %}</div></div>{{ f.description.errors }}</td>
         <td>{{ f.quantity }}{{ f.quantity.errors }}</td>
         <td>{{ f.unit_price }}{{ f.unit_price.errors }}</td>
         <td class="save-product">{{ f.save_as_product }}<label for="{{ f.save_as_product.id_for_label }}">{% trans "Add to catalog" %}</label></td>
@@ -35,7 +35,7 @@ document.querySelectorAll('.product-picker').forEach((picker) => {
   const filter=() => { const query=input.value.trim().toLocaleLowerCase(); options.forEach(option => { option.hidden=!option.dataset.name.toLocaleLowerCase().includes(query); }); menu.hidden=false; };
   input.addEventListener('focus',filter); input.addEventListener('input',filter);
   toggle.addEventListener('click',() => { if(menu.hidden){ filter(); input.focus(); } else { menu.hidden=true; } });
-  options.forEach(option => option.addEventListener('click',() => { input.value=option.dataset.name; const price=picker.closest('.invoice-line').querySelector('.unit-price'); price.value=option.dataset.price; menu.hidden=true; }));
+  options.forEach(option => option.addEventListener('click',() => { input.value=option.dataset.name; picker.closest('.invoice-line').querySelector('select, input[name$=\"product_id\"]').value=option.dataset.id; const price=picker.closest('.invoice-line').querySelector('.unit-price'); price.value=option.dataset.price; menu.hidden=true; }));
 });
 document.addEventListener('click',(event) => { if(!event.target.closest('.product-picker')) document.querySelectorAll('.product-menu').forEach(menu => menu.hidden=true); });
 </script>
