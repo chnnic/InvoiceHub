@@ -31,6 +31,13 @@ class TenantIsolationTests(TestCase):
         response=self.client.post("/en/language/",{"language":"id","next":"/en/"})
         self.assertRedirects(response,"/id/",fetch_redirect_response=False)
         self.assertEqual(response.cookies["django_language"].value,"id")
+    def test_browser_language_redirects_and_remembers_choice(self):
+        response = self.client.get("/", HTTP_ACCEPT_LANGUAGE="id-ID,id;q=0.9,en;q=0.8")
+        self.assertRedirects(response, "/id/", fetch_redirect_response=False)
+        self.assertEqual(response.cookies["django_language"].value, "id")
+        response = self.client.get("/", HTTP_COOKIE="django_language=en", HTTP_ACCEPT_LANGUAGE="id-ID,id;q=0.9")
+        self.assertRedirects(response, "/en/", fetch_redirect_response=False)
+        self.assertEqual(response.cookies["django_language"].value, "en")
     def test_invoice_product_suggestions_are_tenant_isolated(self):
         self.client.force_login(self.ua)
         response=self.client.get(reverse("invoice_create"))
@@ -237,7 +244,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.37")
+        self.assertEqual(VERSION, "1.0.38")
 
     def test_update_container_page_shows_manual_ssh_command(self):
         superuser = User.objects.create_superuser("root5", "root5@example.com", "oldpass123")

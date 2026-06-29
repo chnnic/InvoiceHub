@@ -212,6 +212,7 @@ def switch_language(request):
         parts.insert(1, code)
     response = redirect("/".join(parts))
     response.set_cookie(settings.LANGUAGE_COOKIE_NAME, code, path="/")
+    request.session[settings.LANGUAGE_COOKIE_NAME] = code
     return response
 
 def signup(request):
