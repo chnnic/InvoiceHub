@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, PasswordChangeForm
 from django.contrib.auth.models import User
@@ -23,9 +24,14 @@ class ProductForm(StyledForm, forms.ModelForm):
         labels={"name":_("Product name"),"sku":"SKU","unit":_("Unit"),"price":_("Price"),"track_inventory":_("Track inventory"),"low_stock_threshold":_("Low-stock threshold"),"active":_("Active")}
 class InvoiceForm(StyledForm, forms.ModelForm):
     class Meta:
-        model=Invoice; fields=("customer","issue_date","due_date","status","delivery_status","tax_rate","dpp_factor","discount","notes")
-        widgets={"issue_date":forms.DateInput(attrs={"type":"date"}),"due_date":forms.DateInput(attrs={"type":"date"})}
-        labels={"customer":_("Customer"),"issue_date":_("Issue date"),"due_date":_("Due date"),"status":_("Status"),"delivery_status":_("Delivery status"),"tax_rate":_("PPN rate (%)"),"dpp_factor":_("DPP factor"),"discount":_("Discount"),"notes":_("Notes")}
+        model=Invoice; fields=("customer","issue_date","due_date","status","delivery_status","tax_rate","dpp_factor","discount_type","discount","discount_percent","notes")
+        widgets={
+            "issue_date":forms.DateInput(attrs={"type":"date"}),
+            "due_date":forms.DateInput(attrs={"type":"date"}),
+            "discount":forms.NumberInput(attrs={"step":"0.01","min":"0"}),
+            "discount_percent":forms.NumberInput(attrs={"step":"0.01","min":"0","max":"100"}),
+        }
+        labels={"customer":_("Customer"),"issue_date":_("Issue date"),"due_date":_("Due date"),"status":_("Status"),"delivery_status":_("Delivery status"),"tax_rate":_("PPN rate (%)"),"dpp_factor":_("DPP factor"),"discount_type":_("Discount type"),"discount":_("Discount amount"),"discount_percent":_("Discount (%)"),"notes":_("Notes")}
     def __init__(self, *args, company=None, **kwargs):
         self.company = company
         super().__init__(*args, **kwargs)
@@ -43,6 +49,17 @@ class InvoiceForm(StyledForm, forms.ModelForm):
         if self.company and not self.company.show_ppn:
             data["tax_rate"] = 0
             data["dpp_factor"] = 0
+        discount_type = data.get("discount_type") or Invoice.DiscountType.AMOUNT
+        discount = data.get("discount") or Decimal("0")
+        discount_percent = data.get("discount_percent") or Decimal("0")
+        if discount < 0:
+            self.add_error("discount", _("Discount amount cannot be negative."))
+        if discount_percent < 0 or discount_percent > 100:
+            self.add_error("discount_percent", _("Discount percentage must be between 0 and 100."))
+        if discount_type == Invoice.DiscountType.AMOUNT:
+            data["discount_percent"] = Decimal("0")
+        elif discount_type == Invoice.DiscountType.PERCENT:
+            data["discount"] = Decimal("0")
         return data
 class InvoiceItemForm(StyledForm, forms.ModelForm):
     product_id = forms.ModelChoiceField(queryset=Product.objects.none(), required=False, widget=forms.HiddenInput())

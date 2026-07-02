@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import translation
 from .templatetags.core_tags import money
-from .models import Company, Customer, Product, Invoice, Membership, InventoryTransaction, SystemSetting, UserProfile
+from .models import Company, Customer, Product, Invoice, InvoiceItem, Membership, InventoryTransaction, SystemSetting, UserProfile
 from .version import VERSION
 from .views import _replenish_initial_rows
 
@@ -65,6 +65,25 @@ class TenantIsolationTests(TestCase):
         detail = self.client.get(reverse("invoice_detail", args=[invoice.pk]))
         self.assertNotContains(detail, "PPN 12")
         self.assertNotContains(detail, "PPN 0")
+    def test_invoice_percentage_discount_reduces_total(self):
+        invoice = Invoice.objects.create(company=self.a, customer=self.ca, number="DISC-1", issue_date=date.today(), due_date=date.today(), created_by=self.ua, tax_rate=0, dpp_factor=0, discount_type=Invoice.DiscountType.PERCENT, discount_percent=10)
+        InvoiceItem.objects.create(invoice=invoice, description="Service", quantity=2, unit_price=500)
+        self.assertEqual(invoice.subtotal, Decimal("1000"))
+        self.assertEqual(invoice.discount_amount, Decimal("100"))
+        self.assertEqual(invoice.total, Decimal("900"))
+
+    def test_invoice_form_accepts_percentage_discount(self):
+        product = Product.objects.get(company=self.a, name="A Product")
+        self.client.force_login(self.ua)
+        data={"customer":self.ca.pk,"issue_date":"2026-06-20","due_date":"2026-06-30","status":"draft","tax_rate":"0","dpp_factor":"0","discount_type":"percent","discount":"0","discount_percent":"15","notes":"","items-TOTAL_FORMS":"3","items-INITIAL_FORMS":"0","items-MIN_NUM_FORMS":"0","items-MAX_NUM_FORMS":"1000","items-0-product":str(product.pk),"items-0-description":"Service","items-0-quantity":"1","items-0-unit_price":"200","items-1-description":"","items-1-quantity":"1","items-1-unit_price":"","items-2-description":"","items-2-quantity":"1","items-2-unit_price":""}
+        response = self.client.post(reverse("invoice_create"), data)
+        self.assertEqual(response.status_code, 302)
+        invoice = Invoice.objects.get(company=self.a)
+        self.assertEqual(invoice.discount_type, Invoice.DiscountType.PERCENT)
+        self.assertEqual(invoice.discount_percent, Decimal("15"))
+        self.assertEqual(invoice.discount_amount, Decimal("30"))
+        self.assertEqual(invoice.total, Decimal("170"))
+
     def test_invoice_numbers_increment_from_company_rule(self):
         self.a.invoice_prefix="ID-"; self.a.invoice_number_digits=3; self.a.next_invoice_number=7; self.a.save()
         product = Product.objects.get(company=self.a, name="A Product")
@@ -244,7 +263,7 @@ class TenantIsolationTests(TestCase):
         self.assertEqual(self.client.get(reverse("logout")).status_code, 302)
 
     def test_version_constant_is_present(self):
-        self.assertEqual(VERSION, "1.0.38")
+        self.assertEqual(VERSION, "1.0.39")
 
     def test_update_container_page_shows_manual_ssh_command(self):
         superuser = User.objects.create_superuser("root5", "root5@example.com", "oldpass123")

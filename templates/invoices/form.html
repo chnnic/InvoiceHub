@@ -36,8 +36,22 @@
 </form>
 <style>
 .number-preview{display:flex;gap:16px;align-items:center}.number-preview strong{font-size:18px;color:var(--accent)}.hint{color:var(--muted)}.line-panel{overflow:visible}.product-cell{min-width:280px}.product-picker{position:relative;display:flex}.product-picker .product-combobox{padding-right:42px}.product-toggle{position:absolute;right:1px;top:1px;bottom:1px;width:38px;border:0;border-left:1px solid var(--line);background:#fff;border-radius:0 7px 7px 0;cursor:pointer}.product-menu{position:absolute;z-index:20;top:calc(100% + 4px);left:0;right:0;max-height:240px;overflow:auto;background:#fff;border:1px solid #d6dae2;border-radius:8px;box-shadow:0 12px 30px #18212f26;padding:5px}.product-option{display:flex;width:100%;justify-content:space-between;align-items:center;gap:12px;border:0;background:#fff;padding:10px;text-align:left;border-radius:6px;cursor:pointer}.product-option[hidden]{display:none!important}.product-option:hover{background:#f1efff}.product-option small{color:var(--muted);white-space:nowrap}.product-menu p{padding:10px;color:var(--muted)}.save-product{white-space:nowrap}.save-product input{width:auto;margin-right:6px}
+.formpanel p:has([name="discount_type"]),.formpanel p:has([name="discount"]),.formpanel p:has([name="discount_percent"]){max-width:420px}
 </style>
 <script>
+const discountType=document.querySelector('[name="discount_type"]');
+const discountAmount=document.querySelector('[name="discount"]');
+const discountPercent=document.querySelector('[name="discount_percent"]');
+if(discountType && discountAmount && discountPercent){
+  const amountRow=discountAmount.closest('p'), percentRow=discountPercent.closest('p');
+  const syncDiscountFields=() => {
+    const usePercent=discountType.value === 'percent';
+    amountRow.hidden=usePercent;
+    percentRow.hidden=!usePercent;
+  };
+  discountType.addEventListener('change', syncDiscountFields);
+  syncDiscountFields();
+}
 document.querySelectorAll('.product-picker').forEach((picker) => {
   const input=picker.querySelector('.product-combobox'), menu=picker.querySelector('.product-menu'), toggle=picker.querySelector('.product-toggle');
   const options=Array.from(picker.querySelectorAll('.product-option'));

@@ -120,6 +120,9 @@ class Invoice(TenantModel):
         DRAFT="draft", _("Draft"); SENT="sent", _("Sent"); PARTIAL="partial", _("Partial"); PAID="paid", _("Paid"); OVERDUE="overdue", _("Overdue"); VOID="void", _("Void")
     class DeliveryStatus(models.TextChoices):
         UNSHIPPED="unshipped", _("Unshipped"); SHIPPED="shipped", _("Shipped")
+    class DiscountType(models.TextChoices):
+        AMOUNT="amount", _("Fixed amount")
+        PERCENT="percent", _("Percentage")
     number = models.CharField(max_length=40)
     customer = models.ForeignKey(Customer, on_delete=models.PROTECT, related_name="invoices")
     issue_date = models.DateField()
@@ -129,7 +132,9 @@ class Invoice(TenantModel):
     inventory_applied = models.BooleanField(default=False)
     tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=12)
     dpp_factor = models.DecimalField(max_digits=8, decimal_places=6, default=0.916667)
+    discount_type = models.CharField(max_length=10, choices=DiscountType.choices, default=DiscountType.AMOUNT)
     discount = models.DecimalField(max_digits=18, decimal_places=2, default=0)
+    discount_percent = models.DecimalField(max_digits=5, decimal_places=2, default=0)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(User, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -139,12 +144,20 @@ class Invoice(TenantModel):
     @property
     def subtotal(self): return sum((x.quantity*x.unit_price for x in self.items.all()), Decimal("0"))
     @property
+    def discount_amount(self):
+        subtotal = self.subtotal
+        if self.discount_type == self.DiscountType.PERCENT:
+            raw_discount = subtotal * (self.discount_percent or Decimal("0")) / Decimal("100")
+        else:
+            raw_discount = self.discount or Decimal("0")
+        return min(max(raw_discount, Decimal("0")), subtotal)
+    @property
     def tax(self):
         if self.company_id and not self.company.show_ppn:
             return Decimal("0")
-        return max(self.subtotal-self.discount, Decimal("0"))*self.dpp_factor*self.tax_rate/Decimal("100")
+        return max(self.subtotal-self.discount_amount, Decimal("0"))*self.dpp_factor*self.tax_rate/Decimal("100")
     @property
-    def total(self): return self.subtotal-self.discount+self.tax
+    def total(self): return max(self.subtotal-self.discount_amount, Decimal("0"))+self.tax
     @property
     def paid(self): return self.payments.aggregate(v=Sum("amount"))["v"] or Decimal("0")
     @property

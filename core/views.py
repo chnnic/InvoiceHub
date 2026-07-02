@@ -291,7 +291,7 @@ def invoices_csv(request):
     invoices_list = list(_filtered_invoices(request.company, params))
     buffer = StringIO()
     writer = csv.writer(buffer)
-    writer.writerow(["Number", "Customer", "Issue date", "Due date", "Status", "Delivery status", "Subtotal", "Paid", "Balance", "Total"])
+    writer.writerow(["Number", "Customer", "Issue date", "Due date", "Status", "Delivery status", "Subtotal", "Discount type", "Discount amount", "Paid", "Balance", "Total"])
     for invoice in invoices_list:
         writer.writerow([
             invoice.number,
@@ -301,6 +301,8 @@ def invoices_csv(request):
             invoice.get_status_display(),
             invoice.get_delivery_status_display(),
             invoice.subtotal,
+            invoice.get_discount_type_display(),
+            invoice.discount_amount,
             invoice.paid,
             invoice.balance,
             invoice.total,

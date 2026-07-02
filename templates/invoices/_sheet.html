@@ -81,7 +81,10 @@
     </div>
     <div class="invoice-totals">
       <p><span>{% trans "Subtotal" %}</span><b>Rp {{ invoice.subtotal|money }}</b></p>
-      <p><span>{% trans "Discount" %}</span><b>Rp {{ invoice.discount|money }}</b></p>
+      <p>
+        <span>{% trans "Discount" %}{% if invoice.discount_type == "percent" %} ({{ invoice.discount_percent|money }}%){% endif %}</span>
+        <b>Rp {{ invoice.discount_amount|money }}</b>
+      </p>
       {% if company.show_ppn %}<p><span>PPN {{ invoice.tax_rate }}%</span><b>Rp {{ invoice.tax|money }}</b></p>{% endif %}
       <h2><span>{% trans "Total" %}</span><b>Rp {{ invoice.total|money }}</b></h2>
       <p><span>{% trans "Paid" %}</span><b>Rp {{ invoice.paid|money }}</b></p>
